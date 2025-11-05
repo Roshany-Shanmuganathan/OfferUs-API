@@ -2,7 +2,10 @@ import Advertisment from "../models/Advertisment.js";
 // Get All Advertisment
 const getAllAdvertisments = async (req, res) => {
   try {
-    const advertisment = await Advertisment.find();
+    const advertisment = await Advertisment.find().populate(
+      "shopId",
+      "shopName email categoryId status"
+    );
     res.json({
       success: true,
       count: advertisment.length,
@@ -19,7 +22,10 @@ const getAllAdvertisments = async (req, res) => {
 // Get One Advertisment
 const getAdvertismentById = async (req, res) => {
   try {
-    const advertisment = await Advertisment.findById(req.params.id);
+    const advertisment = await Advertisment.findById(req.params.id).populate(
+      "shopId",
+      "shopName email categoryId status"
+    );
 
     if (!advertisment) {
       return res.status(404).json({

@@ -2,7 +2,9 @@ import Wishlist from "../models/Wishlist.js";
 // Get All Wishlist
 const getAllWishlists = async (req, res) => {
   try {
-    const wishlists = await Wishlist.find();
+    const wishlists = await Wishlist.find()
+      .populate("customer_id", "name email")
+      .populate("offers.offer_id", "title discountPercentage status");
     res.json({
       success: true,
       count: wishlists.length,

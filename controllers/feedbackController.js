@@ -2,7 +2,9 @@ import Feedback from "../models/Feedback.js";
 // Get All Feedback
 const getAllFeedbacks = async (req, res) => {
   try {
-    const feedbacks = await Feedback.find();
+    const feedbacks = await Feedback.find()
+      .populate("customerId", "name email phone")
+      .populate("shopId", "shopName email categoryId");
     res.json({
       success: true,
       count: feedbacks.length,

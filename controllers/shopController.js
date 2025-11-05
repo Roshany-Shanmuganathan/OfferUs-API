@@ -2,7 +2,10 @@ import Shop from "../models/Shop.js";
 // Get All Shop
 const getAllShops = async (req, res) => {
   try {
-    const shops = await Shop.find();
+    const shops = await Shop.find().populate(
+      "categoryId",
+      "categoryName description"
+    );
     res.json({
       success: true,
       count: shops.length,

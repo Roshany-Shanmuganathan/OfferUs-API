@@ -2,7 +2,6 @@ import express from "express";
 import connectDB from "./config/db.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import advertismentRoutes from "./routes/advertismentRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
@@ -24,15 +23,14 @@ app.get("/", (req, res) => {
 
 app.use("/api/customers", customerRoutes);
 app.use("/api/advertisments", advertismentRoutes);
-app.use("/api/admins", adminRoutes);
 app.use("/api/offers", offerRoutes);
 app.use("/api/shops", shopRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/feedbacks", feedbackRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/catogories", categoryRoutes);
-app.use("/api/catogories", notificationRoutes);
-app.use("/api/catogories", paymentRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.listen(PORT, () =>
   console.log(`Server is running on http://localhost:${PORT}`)

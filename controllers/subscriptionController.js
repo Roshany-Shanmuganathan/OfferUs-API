@@ -2,7 +2,10 @@ import Subscription from "../models/Subscription.js";
 // Get All Subscription
 const getAllSubscriptions = async (req, res) => {
   try {
-    const subscriptions = await Subscription.find();
+    const subscriptions = await Subscription.find().populate(
+      "shopId",
+      "shopName email status"
+    );
     res.json({
       success: true,
       count: subscriptions.length,

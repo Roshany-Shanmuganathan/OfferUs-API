@@ -2,7 +2,10 @@ import Payment from "../models/Payment.js";
 // Get All Payment
 const getAllPayments = async (req, res) => {
   try {
-    const payments = await Payment.find();
+    const payments = await Payment.find()
+      .populate("shopId", "shopName email")
+      .populate("subscriptionId", "planType amount paymentStatus")
+      .populate("advertisementId", "title cost duration");
     res.json({
       success: true,
       count: payments.length,

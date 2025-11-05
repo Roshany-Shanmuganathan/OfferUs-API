@@ -2,7 +2,16 @@ import Offer from "../models/offer.js";
 // Get All Offer
 const getAllOffers = async (req, res) => {
   try {
-    const offers = await Offer.find();
+    const offers = await Offer.find()
+      .populate("shopId", "shopName email categoryId")
+      .populate({
+        path: "shopId",
+        populate: {
+          path: "categoryId",
+          model: "Category",
+          select: "categoryName",
+        },
+      });
     res.json({
       success: true,
       count: offers.length,

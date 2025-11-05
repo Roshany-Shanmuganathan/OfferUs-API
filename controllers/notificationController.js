@@ -2,7 +2,10 @@ import Notification from "../models/Notification.js";
 // Get All Notification
 const getAllNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find();
+    const notifications = await Notification.find().populate({
+      path: "userId",
+      select: "name email shopName role",
+    });
     res.json({
       success: true,
       count: notifications.length,
