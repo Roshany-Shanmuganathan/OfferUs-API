@@ -1,8 +1,11 @@
 import User from "../models/User.js";
-// Get All User
+
+// Get All Users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find();
+    // Exclude password using Mongoose projection
+    const users = await User.find().select("-password");
+
     res.json({
       success: true,
       count: users.length,
@@ -19,12 +22,12 @@ const getAllUsers = async (req, res) => {
 // Get One User
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: "user not found",
+        error: "User not found",
       });
     }
 
@@ -52,12 +55,16 @@ const createUser = async (req, res) => {
   try {
     const newUser = new User(req.body);
     const savedUser = await newUser.save();
+
+    // Remove password from response
+    const { password, ...userWithoutPassword } = savedUser.toObject();
+
     res.status(201).json({
       message: "User created successfully",
-      user: savedUser,
+      user: userWithoutPassword,
     });
   } catch (error) {
-    if (error.name === "validationError") {
+    if (error.name === "ValidationError") {
       const errors = Object.values(error.errors).map((err) => ({
         field: err.path,
         message: err.message,
@@ -87,7 +94,8 @@ const updateUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
-    });
+      select: "-password",
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -121,6 +129,7 @@ const updateUser = async (req, res) => {
   }
 };
 
+// Delete User
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
