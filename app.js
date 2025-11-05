@@ -1,4 +1,6 @@
 import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
 import connectDB from "./config/db.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import advertismentRoutes from "./routes/advertismentRoutes.js";
@@ -14,6 +16,8 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
+app.use(cors());
+dotenv.config(process.env.MONGO_URI);
 
 connectDB();
 
