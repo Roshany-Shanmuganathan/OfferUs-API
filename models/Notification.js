@@ -4,12 +4,12 @@ const notificationSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      refPath: "userType", // Dynamic reference
+      refPath: "userType",
       required: true,
     },
     userType: {
       type: String,
-      enum: ["Customer", "Shop", "Admin"], // Multi-role support
+      enum: ["Customer", "Shop", "Admin"],
       required: true,
     },
     title: {
