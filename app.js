@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cors());
-dotenv.config(process.env.MONGO_URI);
+dotenv.config();
 
 connectDB();
 
