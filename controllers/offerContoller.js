@@ -1,4 +1,4 @@
-import Offer from "../models/offer.js";
+import Offer from "../models/Offer.js";
 // Get All Offer
 const getAllOffers = async (req, res) => {
   try {
