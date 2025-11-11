@@ -13,22 +13,19 @@ import {
   getMonthlyReport,
   updatePartnerPremiumStatus,
 } from '../controllers/adminController.js';
-import { protect, authorize } from '../middleware/authMiddleware.js';
+import { verifyToken, verifyRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // All routes require authentication and admin role
-router.use(protect);
-router.use(authorize('admin'));
+router.use(verifyToken);
+router.use(verifyRole('admin'));
 
 // User management routes
-router.route('/users')
-  .get(getUsers);
-
-router.route('/users/:id')
-  .get(getUser)
-  .put(updateUser)
-  .delete(deleteUser);
+router.get('/users', getUsers);
+router.get('/users/:id', getUser);
+router.put('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 
 // Partner management routes
 router.get('/partners', getPartners);
@@ -45,4 +42,3 @@ router.get('/analytics', getAnalytics);
 router.get('/reports/monthly', getMonthlyReport);
 
 export default router;
-

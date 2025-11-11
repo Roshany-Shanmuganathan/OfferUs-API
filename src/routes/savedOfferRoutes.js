@@ -1,8 +1,9 @@
 import express from 'express';
 import {
-  getMemberProfile,
-  updateMemberProfile,
-} from '../controllers/memberController.js';
+  saveOffer,
+  getSavedOffers,
+  removeSavedOffer,
+} from '../controllers/savedOfferController.js';
 import { verifyToken, verifyRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -11,8 +12,10 @@ const router = express.Router();
 router.use(verifyToken);
 router.use(verifyRole('member'));
 
-// Member profile routes
-router.get('/profile', getMemberProfile);
-router.put('/profile', updateMemberProfile);
+// Member routes - Manage saved offers
+router.get('/', getSavedOffers);
+router.post('/', saveOffer);
+router.delete('/:offerId', removeSavedOffer);
 
 export default router;
+

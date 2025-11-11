@@ -4,7 +4,7 @@ import {
   login,
   getMe,
 } from '../controllers/authController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -13,7 +13,6 @@ router.post('/register', register);
 router.post('/login', login);
 
 // Protected routes
-router.get('/me', protect, getMe);
+router.get('/me', verifyToken, getMe);
 
 export default router;
-
