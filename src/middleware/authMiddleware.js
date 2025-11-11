@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import TokenBlacklist from '../models/TokenBlacklist.js';
 import { sendError } from '../utils/responseFormat.js';
 
 /**
@@ -19,6 +20,12 @@ export const verifyToken = async (req, res, next) => {
     }
 
     try {
+      // Check blacklist first
+      const blacklisted = await TokenBlacklist.findOne({ token });
+      if (blacklisted) {
+        return sendError(res, 401, 'Not authorized, token has been revoked');
+      }
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = await User.findById(decoded.id).select('-password');
 
@@ -30,6 +37,8 @@ export const verifyToken = async (req, res, next) => {
         return sendError(res, 401, 'User account is inactive');
       }
 
+      // Expose token on request for logout use-cases
+      req.token = token;
       next();
     } catch (error) {
       return sendError(res, 401, 'Not authorized, invalid token');
@@ -112,12 +121,18 @@ export const optionalAuth = async (req, res, next) => {
 
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id).select('-password');
-
-        // Only set user if account is active
-        if (req.user && !req.user.isActive) {
+        // Skip if blacklisted
+        const blacklisted = await TokenBlacklist.findOne({ token });
+        if (blacklisted) {
           req.user = null;
+        } else {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          req.user = await User.findById(decoded.id).select('-password');
+
+          // Only set user if account is active
+          if (req.user && !req.user.isActive) {
+            req.user = null;
+          }
         }
       } catch (error) {
         // Invalid token, but continue without user

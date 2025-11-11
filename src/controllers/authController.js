@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import Partner from "../models/Partner.js";
 import Member from "../models/Member.js";
+import TokenBlacklist from "../models/TokenBlacklist.js";
 import { sendSuccess, sendError } from "../utils/responseFormat.js";
 
 // Generate JWT Token
@@ -227,6 +228,43 @@ export const getMe = async (req, res) => {
       ...additionalData,
     });
   } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Logout user (invalidate token)
+// @route   POST /api/auth/logout
+// @access  Private
+export const logout = async (req, res) => {
+  try {
+    // Extract token from Authorization header
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return sendError(res, 400, 'Token not provided');
+    }
+
+    // Decode token without verifying to get exp (we already verified in middleware)
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) {
+      return sendError(res, 400, 'Invalid token');
+    }
+
+    // Calculate expiry date for blacklist (when token would naturally expire)
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    // Store token in blacklist
+    await TokenBlacklist.create({ token, expiresAt, reason: 'logout' });
+
+    return sendSuccess(res, 200, 'Logged out successfully');
+  } catch (error) {
+    // Handle duplicate entry (already blacklisted)
+    if (error.code === 11000) {
+      return sendSuccess(res, 200, 'Logged out successfully');
+    }
     return sendError(res, 500, error.message);
   }
 };
