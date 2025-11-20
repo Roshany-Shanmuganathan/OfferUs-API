@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Partner from '../models/Partner.js';
 import Member from '../models/Member.js';
@@ -174,34 +175,166 @@ export const getPartners = async (req, res) => {
   }
 };
 
-// @desc    Approve partner registration
+// @desc    Get all pending partners waiting for approval
+// @route   GET /api/admin/partners/pending
+// @access  Private (Admin)
+export const getPendingPartners = async (req, res) => {
+  try {
+    // Get pagination parameters from query string (optional)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Find all partners with status "pending"
+    const partners = await Partner.find({ status: 'pending' })
+      .sort({ createdAt: -1 }) // Newest first
+      .skip(skip)
+      .limit(limit);
+
+    // Count total pending partners
+    const total = await Partner.countDocuments({ status: 'pending' });
+
+    return sendSuccess(res, 200, 'Pending partners retrieved successfully', {
+      partners,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Approve partner registration and create login credentials
 // @route   PUT /api/admin/partners/:id/approve
 // @access  Private (Admin)
 export const approvePartner = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const partner = await Partner.findById(req.params.id).populate('user');
+    // Get partner ID from URL parameter
+    const partnerId = req.params.id;
+    
+    // Get password and optional email from request body
+    // User model validation will handle missing/invalid password
+    const { password, email } = req.body || {};
+
+    // Find the partner by ID
+    const partner = await Partner.findById(partnerId).session(session);
 
     if (!partner) {
+      await session.abortTransaction();
+      session.endSession();
       return sendError(res, 404, 'Partner not found');
     }
 
+    // Check if partner is already approved
+    if (partner.status === 'approved') {
+      await session.abortTransaction();
+      session.endSession();
+      return sendError(res, 400, 'Validation failed', [
+        {
+          field: 'status',
+          message: 'Partner is already approved',
+        },
+      ]);
+    }
+
+    // Use email from request body, or use partner's email if not provided
+    const userEmail = email || partner.email;
+
+    // Check if user already exists with this email
+    const userExists = await User.findOne({ email: userEmail }).session(session);
+    if (userExists) {
+      await session.abortTransaction();
+      session.endSession();
+      return sendError(res, 400, 'Validation failed', [
+        {
+          field: 'email',
+          message: 'User already exists with this email',
+        },
+      ]);
+    }
+
+    // Create user account with password
+    // User schema will validate password (minimum 6 characters)
+    const user = await User.create(
+      [
+        {
+          email: userEmail,
+          password,
+          role: 'partner',
+          profile: {},
+        },
+      ],
+      { session }
+    );
+
+    const newUser = user[0];
+
+    // Update partner: link to user and set status to approved
+    partner.user = newUser._id;
     partner.status = 'approved';
-    await partner.save();
+    await partner.save({ session });
+
+    // Save all changes
+    await session.commitTransaction();
+    session.endSession();
 
     // Create notification for partner
-    await Notification.create({
-      user: partner.user._id,
-      type: 'partner_approved',
-      title: 'Partner Registration Approved',
-      message: `Your partner registration for ${partner.shopName} has been approved!`,
-      relatedEntity: {
-        entityType: 'partner',
-        entityId: partner._id,
+    try {
+      await Notification.create({
+        user: newUser._id,
+        type: 'partner_approved',
+        title: 'Partner Registration Approved',
+        message: `Your partner registration for ${partner.shopName} has been approved! You can now login with your credentials.`,
+        relatedEntity: {
+          entityType: 'partner',
+          entityId: partner._id,
+        },
+      });
+    } catch (notifError) {
+      // If notification fails, log it but don't fail the request
+      console.error('Failed to create notification:', notifError);
+    }
+
+    return sendSuccess(res, 200, 'Partner approved successfully. Login credentials sent.', {
+      partner: {
+        id: partner._id,
+        email: userEmail,
+        partnerName: partner.partnerName,
+        shopName: partner.shopName,
+        status: partner.status,
       },
     });
-
-    return sendSuccess(res, 200, 'Partner approved successfully', { partner });
   } catch (error) {
+    // If something goes wrong, undo all changes
+    await session.abortTransaction();
+    session.endSession();
+
+    // Handle validation errors from User schema (like password too short)
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err) => ({
+        field: err.path,
+        message: err.message,
+      }));
+      return sendError(res, 400, 'Validation failed', validationErrors);
+    }
+
+    // Handle duplicate email error
+    if (error.code === 11000) {
+      return sendError(res, 400, 'Validation failed', [
+        {
+          field: 'email',
+          message: 'Email already exists',
+        },
+      ]);
+    }
+
     return sendError(res, 500, error.message);
   }
 };

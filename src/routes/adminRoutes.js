@@ -5,6 +5,7 @@ import {
   updateUser,
   deleteUser,
   getPartners,
+  getPendingPartners,
   approvePartner,
   rejectPartner,
   getOffers,
@@ -29,6 +30,7 @@ router.delete('/users/:id', deleteUser);
 
 // Partner management routes
 router.get('/partners', getPartners);
+router.get('/partners/pending', getPendingPartners);
 router.put('/partners/:id/approve', approvePartner);
 router.put('/partners/:id/reject', rejectPartner);
 router.put('/partners/:id/premium', updatePartnerPremiumStatus);

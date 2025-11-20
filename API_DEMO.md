@@ -5,10 +5,11 @@ Complete API documentation with sample Sri Lankan data for all endpoints.
 ## Table of Contents
 
 1. [Authentication](#authentication)
-2. [Public Routes](#public-routes)
-3. [Member Routes](#member-routes)
-4. [Partner Routes](#partner-routes)
-5. [Admin Routes](#admin-routes)
+2. [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints)
+3. [Public Routes](#public-routes)
+4. [Member Routes](#member-routes)
+5. [Partner Routes](#partner-routes)
+6. [Admin Routes](#admin-routes)
 
 ---
 
@@ -99,26 +100,449 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## Public Routes
+## Filtering, Searching & Pagination Endpoints
 
-### Browse All Offers
+This section documents all endpoints that support filtering, searching, and pagination capabilities.
+
+---
+
+### 1. Browse All Offers
 
 **GET** `/api/offers`
 
+**Description:** Browse all active offers with optional filtering by category, city, and search keywords. Supports pagination.
+
 **Query Parameters:**
 
-- `category` (optional): Filter by category
-- `city` (optional): Filter by city
-- `search` (optional): Search in title/description
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
+- `category` (optional, filter): Filter by category. Exact match, case-sensitive. Available values: Restaurant, Retail, Travel, Beauty & Spa, Fitness, Electronics, Fashion, Health, Education, Entertainment, Automotive.
+- `city` (optional, filter): Filter by city. Case-insensitive partial match. Example: Colombo, Kandy, Galle.
+- `search` (optional, search): Search in title and description fields. Case-insensitive regex matching.
+- `page` (optional, pagination): Page number. Default: 1. Only active when `limit` is used.
+- `limit` (optional, pagination): Items per page. Default: 10. Only active when `page` is used.
 
-**Example:**
+**Available Categories:**
+- Restaurant
+- Retail
+- Travel
+- Beauty & Spa
+- Fitness
+- Electronics
+- Fashion
+- Health
+- Education
+- Entertainment
+- Automotive
 
+**Examples Without Pagination:**
+
+Get all active offers:
+```
+GET /api/offers
+```
+
+Filter by category only:
+```
+GET /api/offers?category=Restaurant
+GET /api/offers?category=Electronics
+GET /api/offers?category=Fitness
+GET /api/offers?category=Travel
+GET /api/offers?category=Beauty%20%26%20Spa
+```
+
+Filter by city only:
+```
+GET /api/offers?city=Colombo
+GET /api/offers?city=Kandy
+GET /api/offers?city=Galle
+```
+
+Search by keywords only:
+```
+GET /api/offers?search=rice
+GET /api/offers?search=discount
+GET /api/offers?search=rice%20curry
+GET /api/offers?search=laptop
+```
+
+Combine filters (without pagination):
+```
+GET /api/offers?category=Restaurant&city=Colombo
+GET /api/offers?category=Electronics&search=laptop
+GET /api/offers?city=Kandy&search=spa
+GET /api/offers?category=Beauty%20%26%20Spa&city=Kandy&search=facial
+GET /api/offers?category=Restaurant&search=rice%20curry
+```
+
+**Examples With Pagination:**
+
+Get paginated results:
+```
+GET /api/offers?page=1&limit=10
+GET /api/offers?page=2&limit=10
+GET /api/offers?page=1&limit=20
+GET /api/offers?page=3&limit=5
+```
+
+Filter by category with pagination:
+```
+GET /api/offers?category=Restaurant&page=1&limit=10
+GET /api/offers?category=Electronics&page=1&limit=5
+GET /api/offers?category=Travel&page=2&limit=10
+```
+
+Filter by city with pagination:
+```
+GET /api/offers?city=Colombo&page=1&limit=10
+GET /api/offers?city=Kandy&page=1&limit=15
+GET /api/offers?city=Galle&page=2&limit=10
+```
+
+Search with pagination:
+```
+GET /api/offers?search=rice&page=1&limit=10
+GET /api/offers?search=discount&page=1&limit=5
+GET /api/offers?search=laptop&page=2&limit=10
+```
+
+Combine all filters with pagination:
 ```
 GET /api/offers?category=Restaurant&city=Colombo&page=1&limit=10
-GET /api/offers?search=rice%20curry
-GET /api/offers?city=Kandy
+GET /api/offers?category=Electronics&search=laptop&page=1&limit=10
+GET /api/offers?city=Kandy&search=spa&page=1&limit=15
+GET /api/offers?category=Beauty%20%26%20Spa&city=Kandy&search=facial&page=1&limit=10
+GET /api/offers?category=Restaurant&city=Colombo&search=rice&page=1&limit=20
+GET /api/offers?category=Fashion&search=summer&page=2&limit=5
+```
+
+**Notes:**
+- Only returns active offers that haven't expired
+- Sorted by creation date (newest first)
+- Category filter is case-sensitive and exact match
+- City filter is case-insensitive and partial match
+- Search is case-insensitive and matches title/description
+- View counts are auto-incremented on each request
+- If authenticated as member, includes `isSaved` flag per offer
+
+---
+
+### 2. Get Notifications
+
+**GET** `/api/notifications`
+
+**Description:** Get all notifications for the authenticated user. Supports pagination.
+
+**Access:** Private (Member, Partner, Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `page` (optional, pagination): Page number. Default: 1.
+- `limit` (optional, pagination): Items per page. Default: 10.
+
+**Examples Without Pagination:**
+
+Get all notifications:
+```
+GET /api/notifications
+```
+
+**Examples With Pagination:**
+
+Get paginated notifications:
+```
+GET /api/notifications?page=1&limit=10
+GET /api/notifications?page=2&limit=10
+GET /api/notifications?page=1&limit=20
+GET /api/notifications?page=3&limit=5
+```
+
+**Notes:**
+- Returns notifications for the authenticated user only
+- Sorted by creation date (newest first)
+- Includes unread count in response
+- Response includes pagination metadata
+
+---
+
+### 3. Get All Users (Admin)
+
+**GET** `/api/admin/users`
+
+**Description:** Get all users in the system with optional filtering by role. Supports pagination.
+
+**Access:** Private (Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `role` (optional, filter): Filter by user role. Available values: admin, partner, member. Exact match, case-sensitive.
+- `page` (optional, pagination): Page number. Default: 1.
+- `limit` (optional, pagination): Items per page. Default: 10.
+
+**Examples Without Pagination:**
+
+Get all users:
+```
+GET /api/admin/users
+```
+
+Filter by role only:
+```
+GET /api/admin/users?role=member
+GET /api/admin/users?role=partner
+GET /api/admin/users?role=admin
+```
+
+**Examples With Pagination:**
+
+Get paginated users:
+```
+GET /api/admin/users?page=1&limit=10
+GET /api/admin/users?page=2&limit=10
+GET /api/admin/users?page=1&limit=20
+```
+
+Filter by role with pagination:
+```
+GET /api/admin/users?role=member&page=1&limit=10
+GET /api/admin/users?role=partner&page=1&limit=15
+GET /api/admin/users?role=admin&page=1&limit=5
+```
+
+**Notes:**
+- Returns all users (passwords excluded)
+- Sorted by creation date (newest first)
+- Role filter is case-sensitive and exact match
+- Response includes pagination metadata
+
+---
+
+### 4. Get All Partners (Admin)
+
+**GET** `/api/admin/partners`
+
+**Description:** Get all partners with optional filtering by status. Supports pagination.
+
+**Access:** Private (Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `status` (optional, filter): Filter by partner status. Available values: pending, approved, rejected. Exact match, case-sensitive.
+- `page` (optional, pagination): Page number. Default: 1.
+- `limit` (optional, pagination): Items per page. Default: 10.
+
+**Examples Without Pagination:**
+
+Get all partners:
+```
+GET /api/admin/partners
+```
+
+Filter by status only:
+```
+GET /api/admin/partners?status=pending
+GET /api/admin/partners?status=approved
+GET /api/admin/partners?status=rejected
+```
+
+**Examples With Pagination:**
+
+Get paginated partners:
+```
+GET /api/admin/partners?page=1&limit=10
+GET /api/admin/partners?page=2&limit=10
+GET /api/admin/partners?page=1&limit=20
+```
+
+Filter by status with pagination:
+```
+GET /api/admin/partners?status=pending&page=1&limit=10
+GET /api/admin/partners?status=approved&page=1&limit=15
+GET /api/admin/partners?status=rejected&page=2&limit=10
+```
+
+**Notes:**
+- Returns all partners with user information
+- Sorted by creation date (newest first)
+- Status filter is case-sensitive and exact match
+- Response includes pagination metadata
+
+---
+
+### 5. Get All Offers (Admin)
+
+**GET** `/api/admin/offers`
+
+**Description:** Get all offers in the system with optional filtering by active status. Supports pagination.
+
+**Access:** Private (Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `isActive` (optional, filter): Filter by active status. Available values: true, false. String values "true" or "false".
+- `page` (optional, pagination): Page number. Default: 1.
+- `limit` (optional, pagination): Items per page. Default: 10.
+
+**Examples Without Pagination:**
+
+Get all offers:
+```
+GET /api/admin/offers
+```
+
+Filter by active status only:
+```
+GET /api/admin/offers?isActive=true
+GET /api/admin/offers?isActive=false
+```
+
+**Examples With Pagination:**
+
+Get paginated offers:
+```
+GET /api/admin/offers?page=1&limit=10
+GET /api/admin/offers?page=2&limit=10
+GET /api/admin/offers?page=1&limit=20
+```
+
+Filter by active status with pagination:
+```
+GET /api/admin/offers?isActive=true&page=1&limit=10
+GET /api/admin/offers?isActive=false&page=1&limit=15
+GET /api/admin/offers?isActive=true&page=2&limit=10
+```
+
+**Notes:**
+- Returns all offers including expired and inactive ones
+- Sorted by creation date (newest first)
+- isActive filter accepts string "true" or "false"
+- Response includes pagination metadata
+
+---
+
+### 6. Get Platform Analytics (Admin)
+
+**GET** `/api/admin/analytics`
+
+**Description:** Get platform analytics with optional date range filtering. No pagination.
+
+**Access:** Private (Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `startDate` (optional, filter): Start date for analytics range. ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.sssZ).
+- `endDate` (optional, filter): End date for analytics range. ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.sssZ).
+
+**Examples:**
+
+Get all analytics:
+```
+GET /api/admin/analytics
+```
+
+Filter by date range:
+```
+GET /api/admin/analytics?startDate=2024-01-01
+GET /api/admin/analytics?endDate=2024-12-31
+GET /api/admin/analytics?startDate=2024-01-01&endDate=2024-12-31
+GET /api/admin/analytics?startDate=2024-01-01T00:00:00.000Z&endDate=2024-12-31T23:59:59.000Z
+```
+
+**Notes:**
+- Returns comprehensive platform statistics
+- Date filters are based on creation date
+- No pagination support (returns aggregated data)
+- Includes user, partner, offer, and review statistics
+
+---
+
+### 7. Generate Monthly Report (Admin)
+
+**GET** `/api/admin/reports/monthly`
+
+**Description:** Generate monthly report with optional year and month filtering. No pagination.
+
+**Access:** Private (Admin)
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Parameters:**
+
+- `year` (optional, filter): Year for report. Default: current year. Numeric value (e.g., 2024).
+- `month` (optional, filter): Month for report. Default: current month. Numeric value (1-12).
+
+**Examples:**
+
+Get current month report:
+```
+GET /api/admin/reports/monthly
+```
+
+Filter by year only:
+```
+GET /api/admin/reports/monthly?year=2024
+```
+
+Filter by month only:
+```
+GET /api/admin/reports/monthly?month=1
+```
+
+Filter by year and month:
+```
+GET /api/admin/reports/monthly?year=2024&month=1
+GET /api/admin/reports/monthly?year=2024&month=12
+GET /api/admin/reports/monthly?year=2023&month=6
+```
+
+**Notes:**
+- Returns monthly statistics for the specified period
+- Month filter uses 1-based indexing (1 = January, 12 = December)
+- Defaults to current year and month if not specified
+- No pagination support (returns aggregated report data)
+
+---
+
+## Public Routes
+
+### Get Categories
+
+**GET** `/api/offers/categories`
+
+**Description:** Get all available offer categories. No filtering or pagination needed.
+
+**Query Parameters:** None
+
+**Examples:**
+
+```
+GET /api/offers/categories
 ```
 
 ---
@@ -139,17 +563,15 @@ GET /api/offers/64f1a2b3c4d5e6f7g8h9i0j5
 
 **GET** `/api/offers/:id/reviews`
 
+**Description:** Get all reviews for a specific offer. No filtering or pagination needed.
+
+**Query Parameters:** None
+
 **Example:**
 
 ```
 GET /api/offers/64f1a2b3c4d5e6f7g8h9i0j5/reviews
 ```
-
----
-
-### Get Categories
-
-**GET** `/api/offers/categories`
 
 ---
 
@@ -189,11 +611,26 @@ POST /api/members/offers/64f1a2b3c4d5e6f7g8h9i0j5/save
 
 **GET** `/api/members/offers/saved`
 
+**Description:** Get all saved offers for the authenticated member. Only returns active, non-expired offers.
+
 **Headers:**
 
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
+
+**Query Parameters:** None (currently no filtering or pagination support)
+
+**Examples:**
+
+```
+GET /api/members/offers/saved
+```
+
+**Notes:**
+- Returns only active offers that haven't expired
+- Sorted by save date (newest first)
+- Includes partner information for each offer
 
 ---
 
@@ -264,6 +701,8 @@ POST /api/members/offers/64f1a2b3c4d5e6f7g8h9i0j5/review
 
 **GET** `/api/members/notifications`
 
+**Description:** Get all notifications for the authenticated member. Supports pagination. (Also available at `/api/notifications`)
+
 **Headers:**
 
 ```
@@ -272,13 +711,23 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
+- `page` (optional, pagination): Page number. Default: 1.
+- `limit` (optional, pagination): Items per page. Default: 10.
 
-**Example:**
+**Examples Without Pagination:**
 
+Get all notifications:
+```
+GET /api/members/notifications
+```
+
+**Examples With Pagination:**
+
+Get paginated notifications:
 ```
 GET /api/members/notifications?page=1&limit=10
+GET /api/members/notifications?page=2&limit=10
+GET /api/members/notifications?page=1&limit=20
 ```
 
 ---
@@ -377,13 +826,30 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### Get Partner Offers
 
-**GET** `/api/partners/offers`
+**GET** `/api/partners/offers` or **GET** `/api/offers/partner/my-offers`
+
+**Description:** Get all offers created by the authenticated partner. Returns all offers (active and inactive).
 
 **Headers:**
 
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
+
+**Query Parameters:** None (currently no filtering or pagination support)
+
+**Examples:**
+
+```
+GET /api/partners/offers
+GET /api/offers/partner/my-offers
+```
+
+**Notes:**
+- Returns all offers created by the partner (both active and inactive)
+- Includes expired offers
+- Sorted by creation date (newest first)
+- Requires partner to be approved
 
 ---
 
@@ -504,9 +970,13 @@ PUT /api/partners/reviews/64f1a2b3c4d5e6f7g8h9i0j6/respond
 
 ## Admin Routes
 
+> **Note:** For detailed filtering, searching, and pagination information, see the [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) section above.
+
 ### Get All Users
 
 **GET** `/api/admin/users`
+
+**Description:** Get all users with optional filtering by role and pagination. See section 3 in [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) for complete documentation.
 
 **Headers:**
 
@@ -516,17 +986,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `role` (optional): Filter by role (admin, partner, member)
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
-
-**Example:**
-
-```
-GET /api/admin/users?role=partner&page=1&limit=10
-GET /api/admin/users?role=member
-GET /api/admin/users
-```
+- `role` (optional, filter): Filter by role (admin, partner, member)
+- `page` (optional, pagination): Page number (default: 1)
+- `limit` (optional, pagination): Items per page (default: 10)
 
 ---
 
@@ -596,6 +1058,8 @@ DELETE /api/admin/users/64f1a2b3c4d5e6f7g8h9i0j1
 
 **GET** `/api/admin/partners`
 
+**Description:** Get all partners with optional filtering by status and pagination. See section 4 in [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) for complete documentation.
+
 **Headers:**
 
 ```
@@ -604,17 +1068,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `status` (optional): Filter by status (pending, approved, rejected)
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
-
-**Example:**
-
-```
-GET /api/admin/partners?status=pending&page=1&limit=10
-GET /api/admin/partners?status=approved
-GET /api/admin/partners
-```
+- `status` (optional, filter): Filter by status (pending, approved, rejected)
+- `page` (optional, pagination): Page number (default: 1)
+- `limit` (optional, pagination): Items per page (default: 10)
 
 ---
 
@@ -692,6 +1148,8 @@ PUT /api/admin/partners/64f1a2b3c4d5e6f7g8h9i0j4/premium
 
 **GET** `/api/admin/offers`
 
+**Description:** Get all offers with optional filtering by active status and pagination. See section 5 in [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) for complete documentation.
+
 **Headers:**
 
 ```
@@ -700,17 +1158,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `isActive` (optional): Filter by active status (true/false)
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
-
-**Example:**
-
-```
-GET /api/admin/offers?isActive=true&page=1&limit=10
-GET /api/admin/offers?isActive=false
-GET /api/admin/offers
-```
+- `isActive` (optional, filter): Filter by active status (true/false)
+- `page` (optional, pagination): Page number (default: 1)
+- `limit` (optional, pagination): Items per page (default: 10)
 
 ---
 
@@ -736,6 +1186,8 @@ DELETE /api/admin/offers/64f1a2b3c4d5e6f7g8h9i0j5
 
 **GET** `/api/admin/analytics`
 
+**Description:** Get platform analytics with optional date range filtering. See section 6 in [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) for complete documentation.
+
 **Headers:**
 
 ```
@@ -744,15 +1196,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `startDate` (optional): Start date for analytics (ISO format)
-- `endDate` (optional): End date for analytics (ISO format)
-
-**Example:**
-
-```
-GET /api/admin/analytics?startDate=2024-01-01&endDate=2024-01-31
-GET /api/admin/analytics
-```
+- `startDate` (optional, filter): Start date for analytics range. ISO 8601 format.
+- `endDate` (optional, filter): End date for analytics range. ISO 8601 format.
 
 ---
 
@@ -760,6 +1205,8 @@ GET /api/admin/analytics
 
 **GET** `/api/admin/reports/monthly`
 
+**Description:** Generate monthly report with optional year and month filtering. See section 7 in [Filtering, Searching & Pagination Endpoints](#filtering-searching--pagination-endpoints) for complete documentation.
+
 **Headers:**
 
 ```
@@ -768,15 +1215,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Query Parameters:**
 
-- `year` (optional): Year for report (default: current year)
-- `month` (optional): Month for report (default: current month)
-
-**Example:**
-
-```
-GET /api/admin/reports/monthly?year=2024&month=1
-GET /api/admin/reports/monthly
-```
+- `year` (optional, filter): Year for report. Default: current year. Numeric value (e.g., 2024).
+- `month` (optional, filter): Month for report. Default: current month. Numeric value (1-12).
 
 ---
 

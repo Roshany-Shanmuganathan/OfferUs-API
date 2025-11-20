@@ -5,8 +5,20 @@ const partnerSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "User reference is required"],
+      required: false,
       unique: true,
+      sparse: true, // Allows multiple null values but enforces uniqueness for non-null values
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please provide a valid email address",
+      ],
     },
     partnerName: {
       type: String,
@@ -82,7 +94,10 @@ const partnerSchema = new mongoose.Schema(
         type: String,
         required: [true, "Mobile number is required"],
         trim: true,
-        match: [/^(\+94|0)?[0-9]{9}$/, "Please enter a valid Sri Lankan mobile number"],
+        match: [
+          /^(\+94|0)?[0-9]{9}$/,
+          "Please enter a valid Sri Lankan mobile number",
+        ],
       },
       website: String,
     },
