@@ -1,4 +1,5 @@
 import Partner from '../models/Partner.js';
+import Notification from '../models/Notification.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
 
 /**
@@ -8,7 +9,7 @@ import { sendSuccess, sendError } from '../utils/responseFormat.js';
  */
 export const getPartnerProfile = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id }).populate('user', 'email profile');
+    const partner = await Partner.findOne({ userId: req.user._id }).populate('userId', 'email');
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -35,7 +36,7 @@ export const updatePartnerProfile = async (req, res) => {
       contactInfo,
     } = req.body;
 
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -78,7 +79,7 @@ export const updatePartnerProfile = async (req, res) => {
  */
 export const getPartnerAnalytics = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -103,6 +104,198 @@ export const getPartnerAnalytics = async (req, res) => {
     };
 
     return sendSuccess(res, 200, 'Analytics retrieved successfully', { analytics });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// Admin functions for partner management
+// @desc    Get all partners (pending, approved, rejected)
+// @route   GET /api/partners
+// @access  Private (Admin)
+export const getPartners = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (status) {
+      query.status = status;
+    }
+
+    const partners = await Partner.find(query)
+      .populate('userId', 'email isActive')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Partner.countDocuments(query);
+
+    return sendSuccess(res, 200, 'Partners retrieved successfully', {
+      partners,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Get all pending partners waiting for approval
+// @route   GET /api/partners/pending
+// @access  Private (Admin)
+export const getPendingPartners = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const partners = await Partner.find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Partner.countDocuments({ status: 'pending' });
+
+    return sendSuccess(res, 200, 'Pending partners retrieved successfully', {
+      partners,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Approve partner registration
+// @route   PATCH /api/partners/:id/approve
+// @access  Private (Admin)
+export const approvePartner = async (req, res) => {
+  try {
+    const partnerId = req.params.id;
+    const partner = await Partner.findById(partnerId).populate('userId', 'email');
+
+    if (!partner) {
+      return sendError(res, 404, 'Partner not found');
+    }
+
+    if (partner.status === 'approved') {
+      return sendError(res, 400, 'Validation failed', [
+        {
+          field: 'status',
+          message: 'Partner is already approved',
+        },
+      ]);
+    }
+
+    if (!partner.userId) {
+      return sendError(res, 400, 'Partner user account not found');
+    }
+
+    partner.status = 'approved';
+    partner.verifiedAt = new Date();
+    await partner.save();
+
+    try {
+      await Notification.create({
+        user: partner.userId._id,
+        type: 'partner_approved',
+        title: 'Partner Registration Approved',
+        message: `Your partner registration for ${partner.shopName} has been approved! You can now login with your credentials.`,
+        relatedEntity: {
+          entityType: 'partner',
+          entityId: partner._id,
+        },
+      });
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+    }
+
+    return sendSuccess(res, 200, 'Partner approved successfully', {
+      partner: {
+        id: partner._id,
+        email: partner.userId.email,
+        partnerName: partner.partnerName,
+        shopName: partner.shopName,
+        status: partner.status,
+        verifiedAt: partner.verifiedAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err) => ({
+        field: err.path,
+        message: err.message,
+      }));
+      return sendError(res, 400, 'Validation failed', validationErrors);
+    }
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Reject partner registration
+// @route   PATCH /api/partners/:id/reject
+// @access  Private (Admin)
+export const rejectPartner = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const partner = await Partner.findById(req.params.id).populate('userId', 'email');
+
+    if (!partner) {
+      return sendError(res, 404, 'Partner not found');
+    }
+
+    partner.status = 'rejected';
+    partner.reason = reason || undefined;
+    await partner.save();
+
+    if (partner.userId) {
+      try {
+        await Notification.create({
+          user: partner.userId._id,
+          type: 'partner_rejected',
+          title: 'Partner Registration Rejected',
+          message: reason || `Your partner registration for ${partner.shopName} has been rejected. Please contact support for more information.`,
+          relatedEntity: {
+            entityType: 'partner',
+            entityId: partner._id,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to create notification:', notifError);
+      }
+    }
+
+    return sendSuccess(res, 200, 'Partner rejected successfully', { partner });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Update partner premium status
+// @route   PUT /api/partners/:id/premium
+// @access  Private (Admin)
+export const updatePartnerPremiumStatus = async (req, res) => {
+  try {
+    const { isPremium } = req.body;
+    const partner = await Partner.findById(req.params.id);
+
+    if (!partner) {
+      return sendError(res, 404, 'Partner not found');
+    }
+
+    partner.isPremium = isPremium === true;
+    await partner.save();
+
+    return sendSuccess(res, 200, 'Partner premium status updated successfully', { partner });
   } catch (error) {
     return sendError(res, 500, error.message);
   }

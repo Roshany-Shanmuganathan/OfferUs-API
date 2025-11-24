@@ -1,27 +1,29 @@
 import express from 'express';
 import authRoutes from './authRoutes.js';
-import memberRoutes from './memberRoutes.js';
-import partnerRoutes from './partnerRoutes.js';
-import adminRoutes from './adminRoutes.js';
+import usersRoutes from './usersRoutes.js';
+import membersRoutes from './membersRoutes.js';
+import partnersRoutes from './partnersRoutes.js';
 import offerRoutes from './offerRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 import savedOfferRoutes from './savedOfferRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
+import monthlyReportsRoutes from './monthlyReportsRoutes.js';
 
 const router = express.Router();
 
-// Public routes
-router.use('/offers', offerRoutes);
-
-// Authentication routes
+// Authentication routes (public)
 router.use('/auth', authRoutes);
 
-// Entity-specific routes
-router.use('/members', memberRoutes);
-router.use('/partners', partnerRoutes);
-router.use('/admin', adminRoutes);
+// Entity-based routes (RBAC applied per route)
+router.use('/users', usersRoutes);
+router.use('/members', membersRoutes);
+router.use('/partners', partnersRoutes);
+router.use('/offers', offerRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/saved-offers', savedOfferRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/monthly-reports', monthlyReportsRoutes);
 
 export default router;

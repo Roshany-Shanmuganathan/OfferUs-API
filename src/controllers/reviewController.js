@@ -20,7 +20,10 @@ export const createReview = async (req, res) => {
       return sendError(res, 400, 'Offer ID is required');
     }
 
-    const offer = await Offer.findById(offerId).populate('partner');
+    const offer = await Offer.findById(offerId).populate({
+      path: 'partner',
+      populate: { path: 'userId', select: '_id' }
+    });
 
     if (!offer) {
       return sendError(res, 404, 'Offer not found');
@@ -45,16 +48,18 @@ export const createReview = async (req, res) => {
     });
 
     // Create notification for partner
-    await Notification.create({
-      user: offer.partner.user,
-      type: 'new_review',
-      title: 'New Review',
-      message: `You received a new ${rating}-star review for "${offer.title}"`,
-      relatedEntity: {
-        entityType: 'review',
-        entityId: review._id,
-      },
-    });
+    if (offer.partner && offer.partner.userId) {
+      await Notification.create({
+        user: offer.partner.userId._id,
+        type: 'new_review',
+        title: 'New Review',
+        message: `You received a new ${rating}-star review for "${offer.title}"`,
+        relatedEntity: {
+          entityType: 'review',
+          entityId: review._id,
+        },
+      });
+    }
 
     return sendSuccess(res, 201, 'Review created successfully', { review });
   } catch (error) {
@@ -76,7 +81,7 @@ export const getOfferReviews = async (req, res) => {
     const offerId = req.params.id || req.params.offerId;
     
     const reviews = await Review.find({ offer: offerId })
-      .populate('member', 'profile')
+      .populate('member', 'email')
       .sort({ createdAt: -1 });
 
     return sendSuccess(res, 200, 'Reviews retrieved successfully', { reviews });
@@ -93,14 +98,14 @@ export const getOfferReviews = async (req, res) => {
 export const getPartnerReviews = async (req, res) => {
   try {
     const Partner = (await import('../models/Partner.js')).default;
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
     }
 
     const reviews = await Review.find({ partner: partner._id })
-      .populate('member', 'profile')
+      .populate('member', 'email')
       .populate('offer', 'title')
       .sort({ createdAt: -1 });
 
@@ -118,7 +123,7 @@ export const getPartnerReviews = async (req, res) => {
 export const respondToReview = async (req, res) => {
   try {
     const Partner = (await import('../models/Partner.js')).default;
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');

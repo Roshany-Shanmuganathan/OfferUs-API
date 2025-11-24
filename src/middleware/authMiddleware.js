@@ -75,6 +75,29 @@ export const verifyRole = (allowedRoles) => {
   };
 };
 
+/**
+ * Require Role Middleware (single role)
+ * @param {string} role - Single role required
+ * @returns {Function} Express middleware function
+ */
+export const requireRole = (role) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 401, 'Not authorized, user not found');
+    }
+
+    if (req.user.role !== role) {
+      return sendError(
+        res,
+        403,
+        `User role '${req.user.role}' is not authorized. Required role: ${role}`
+      );
+    }
+
+    next();
+  };
+};
+
 // Keep protect and authorize for backward compatibility (deprecated)
 export const protect = verifyToken;
 export const authorize = verifyRole;
@@ -90,7 +113,7 @@ export const verifyPartnerApproved = async (req, res, next) => {
     }
 
     const Partner = (await import('../models/Partner.js')).default;
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -146,4 +169,9 @@ export const optionalAuth = async (req, res, next) => {
     next();
   }
 };
+
+/**
+ * Auth Optional - alias for optionalAuth (for consistency with requirements)
+ */
+export const authOptional = optionalAuth;
 

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 // Sri Lankan address pattern
 const memberSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: [true, "User reference is required"],

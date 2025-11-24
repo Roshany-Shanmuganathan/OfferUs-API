@@ -5,7 +5,7 @@ import {
   getPartnerReviews,
   respondToReview,
 } from '../controllers/reviewController.js';
-import { verifyToken, verifyRole } from '../middleware/authMiddleware.js';
+import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -13,11 +13,11 @@ const router = express.Router();
 router.get('/offers/:offerId', getOfferReviews);
 
 // Member routes - Create reviews
-router.post('/', verifyToken, verifyRole('member'), createReview);
+router.post('/', verifyToken, requireRole('member'), createReview);
 
 // Partner routes - View and respond to reviews
-router.get('/partner', verifyToken, verifyRole('partner'), getPartnerReviews);
-router.put('/:id/respond', verifyToken, verifyRole('partner'), respondToReview);
+router.get('/partner', verifyToken, requireRole('partner'), getPartnerReviews);
+router.put('/:id/respond', verifyToken, requireRole('partner'), respondToReview);
 
 export default router;
 

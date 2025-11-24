@@ -4,13 +4,13 @@ import {
   getSavedOffers,
   removeSavedOffer,
 } from '../controllers/savedOfferController.js';
-import { verifyToken, verifyRole } from '../middleware/authMiddleware.js';
+import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // All routes require authentication and member role
 router.use(verifyToken);
-router.use(verifyRole('member'));
+router.use(requireRole('member'));
 
 // Member routes - Manage saved offers
 router.get('/', getSavedOffers);

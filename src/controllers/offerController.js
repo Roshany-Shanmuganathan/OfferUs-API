@@ -212,7 +212,7 @@ export const getCategories = async (req, res) => {
  */
 export const createOffer = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -268,7 +268,7 @@ export const createOffer = async (req, res) => {
  */
 export const getPartnerOffers = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -289,7 +289,7 @@ export const getPartnerOffers = async (req, res) => {
  */
 export const getPartnerOffer = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -317,7 +317,7 @@ export const getPartnerOffer = async (req, res) => {
  */
 export const updateOffer = async (req, res) => {
   try {
-    const partner = await Partner.findOne({ user: req.user._id });
+    const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
       return sendError(res, 404, 'Partner profile not found');
@@ -376,7 +376,7 @@ export const deleteOffer = async (req, res) => {
 
     // Partners can only delete their own offers
     if (req.user.role === 'partner') {
-      const partner = await Partner.findOne({ user: req.user._id });
+      const partner = await Partner.findOne({ userId: req.user._id });
       if (!partner) {
         return sendError(res, 404, 'Partner profile not found');
       }
@@ -423,6 +423,42 @@ export const redeemOffer = async (req, res) => {
     await offer.save();
 
     return sendSuccess(res, 200, 'Offer redeemed successfully');
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+// Admin function for offer management
+// @desc    Get all offers (admin view with filters)
+// @route   GET /api/offers/admin/all
+// @access  Private (Admin)
+export const getOffers = async (req, res) => {
+  try {
+    const { isActive, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    const offers = await Offer.find(query)
+      .populate('partner', 'partnerName shopName location')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Offer.countDocuments(query);
+
+    return sendSuccess(res, 200, 'Offers retrieved successfully', {
+      offers,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     return sendError(res, 500, error.message);
   }

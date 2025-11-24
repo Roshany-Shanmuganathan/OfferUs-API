@@ -2,23 +2,11 @@ import mongoose from "mongoose";
 
 const partnerSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
+      required: [true, "User reference is required"],
       unique: true,
-      sparse: true, // Allows multiple null values but enforces uniqueness for non-null values
-    },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      match: [
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        "Please provide a valid email address",
-      ],
     },
     partnerName: {
       type: String,
@@ -107,8 +95,15 @@ const partnerSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "suspended"],
       default: "pending",
+    },
+    reason: {
+      type: String,
+      trim: true,
+    },
+    verifiedAt: {
+      type: Date,
     },
     isPremium: {
       type: Boolean,

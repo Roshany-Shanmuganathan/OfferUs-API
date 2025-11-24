@@ -1,6 +1,7 @@
 import express from 'express';
 import {
-  register,
+  registerMember,
+  registerPartner,
   login,
   getMe,
   logout,
@@ -10,7 +11,8 @@ import { verifyToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 // Public routes
-router.post('/register', register);
+router.post('/register/member', registerMember);
+router.post('/register/partner', registerPartner);
 router.post('/login', login);
 
 // Protected routes

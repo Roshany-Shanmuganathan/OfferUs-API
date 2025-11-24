@@ -8,7 +8,7 @@ import { sendSuccess, sendError } from '../utils/responseFormat.js';
  */
 export const getMemberProfile = async (req, res) => {
   try {
-    const member = await Member.findOne({ user: req.user._id });
+    const member = await Member.findOne({ userId: req.user._id });
 
     if (!member) {
       return sendError(res, 404, 'Member profile not found');
@@ -29,7 +29,7 @@ export const updateMemberProfile = async (req, res) => {
   try {
     const { firstName, lastName, mobileNumber, address, dateOfBirth, gender } = req.body;
 
-    const member = await Member.findOne({ user: req.user._id });
+    const member = await Member.findOne({ userId: req.user._id });
 
     if (!member) {
       return sendError(res, 404, 'Member profile not found');

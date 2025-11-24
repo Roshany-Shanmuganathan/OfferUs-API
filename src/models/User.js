@@ -25,12 +25,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    profile: {
-      firstName: String,
-      lastName: String,
-      phone: String,
-      address: String,
-    },
   },
   {
     timestamps: true,
