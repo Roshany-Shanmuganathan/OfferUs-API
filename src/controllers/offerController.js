@@ -28,6 +28,21 @@ export const browseOffers = async (req, res) => {
       const partners = await Partner.find({
         'location.city': new RegExp(city, 'i'),
       }).select('_id');
+      
+      // If no partners found for the city, return empty results
+      if (partners.length === 0) {
+        return sendSuccess(res, 200, 'Offers retrieved successfully', {
+          offers: [],
+          isAuthenticated: !!req.user,
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0,
+          },
+        });
+      }
+      
       query.partner = { $in: partners.map((p) => p._id) };
     }
 
@@ -48,6 +63,26 @@ export const browseOffers = async (req, res) => {
       .limit(parseInt(limit));
 
     const total = await Offer.countDocuments(query);
+    
+    // Debug: Log query details to help diagnose issues
+    console.log('=== Browse Offers Debug ===');
+    console.log('Query filters:', JSON.stringify(query, null, 2));
+    console.log('Total offers matching query:', total);
+    
+    // Check total offers in database (for debugging)
+    const totalOffersInDB = await Offer.countDocuments({});
+    const activeOffers = await Offer.countDocuments({ isActive: true });
+    const expiredOffers = await Offer.countDocuments({ expiryDate: { $lte: new Date() } });
+    const activeNonExpired = await Offer.countDocuments({ 
+      isActive: true, 
+      expiryDate: { $gt: new Date() } 
+    });
+    
+    console.log('Total offers in DB:', totalOffersInDB);
+    console.log('Active offers:', activeOffers);
+    console.log('Expired offers:', expiredOffers);
+    console.log('Active & non-expired offers:', activeNonExpired);
+    console.log('==========================');
 
     // Increment views for each offer (track analytics)
     await Offer.updateMany(
