@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// Sri Lankan address pattern
 const memberSchema = new mongoose.Schema(
   {
     userId: {
@@ -29,54 +28,9 @@ const memberSchema = new mongoose.Schema(
       ],
     },
     address: {
-      street: {
-        type: String,
-        required: [true, "Street address is required"],
-        trim: true,
-      },
-      city: {
-        type: String,
-        required: [true, "City is required"],
-        trim: true,
-      },
-      district: {
-        type: String,
-        required: [true, "District is required"],
-        trim: true,
-        enum: [
-          "Colombo",
-          "Gampaha",
-          "Kalutara",
-          "Kandy",
-          "Matale",
-          "Nuwara Eliya",
-          "Galle",
-          "Matara",
-          "Hambantota",
-          "Jaffna",
-          "Kilinochchi",
-          "Mannar",
-          "Vavuniya",
-          "Mullaitivu",
-          "Batticaloa",
-          "Ampara",
-          "Trincomalee",
-          "Kurunegala",
-          "Puttalam",
-          "Anuradhapura",
-          "Polonnaruwa",
-          "Badulla",
-          "Moneragala",
-          "Ratnapura",
-          "Kegalle",
-        ],
-      },
-      postalCode: {
-        type: String,
-        required: [true, "Postal code is required"],
-        trim: true,
-        match: [/^[0-9]{5}$/, "Postal code must be 5 digits"],
-      },
+      type: String,
+      required: [true, "Address is required"],
+      trim: true,
     },
     dateOfBirth: {
       type: Date,

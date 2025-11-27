@@ -39,12 +39,7 @@ export const updateMemberProfile = async (req, res) => {
     if (firstName) member.firstName = firstName;
     if (lastName) member.lastName = lastName;
     if (mobileNumber) member.mobileNumber = mobileNumber;
-    if (address) {
-      member.address = {
-        ...member.address,
-        ...address,
-      };
-    }
+    if (address) member.address = address;
     if (dateOfBirth) member.dateOfBirth = dateOfBirth;
     if (gender) member.gender = gender;
 
