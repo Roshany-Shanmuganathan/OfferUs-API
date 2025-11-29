@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import routes from './routes/index.js';
@@ -11,8 +12,17 @@ connectDB();
 // Initialize Express app
 const app = express();
 
+// CORS configuration - allow credentials for cookies
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
+app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

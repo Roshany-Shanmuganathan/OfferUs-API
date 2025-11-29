@@ -100,13 +100,24 @@ export const registerMember = async (req, res) => {
 
     const token = generateToken(newUser._id);
 
+    // Set HTTP-only cookie with token
+    const cookieOptions = {
+      httpOnly: true, // Prevent JavaScript access
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict', // CSRF protection
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
+      path: '/', // Available site-wide
+    };
+
+    res.cookie('token', token, cookieOptions);
+
     // Remove password from response
     const userResponse = newUser.toObject();
     delete userResponse.password;
 
+    // Don't send token in response body for security
     return sendSuccess(res, 201, "Member registered successfully", {
       user: userResponse,
-      token,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -302,13 +313,24 @@ export const login = async (req, res) => {
 
     const token = generateToken(user._id);
 
+    // Set HTTP-only cookie with token
+    const cookieOptions = {
+      httpOnly: true, // Prevent JavaScript access
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict', // CSRF protection
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
+      path: '/', // Available site-wide
+    };
+
+    res.cookie('token', token, cookieOptions);
+
     // Remove password from response
     const userResponse = user.toObject();
     delete userResponse.password;
 
+    // Don't send token in response body for security
     return sendSuccess(res, 200, "Login successful", {
       user: userResponse,
-      token,
     });
   } catch (error) {
     return sendError(res, 500, error.message);
@@ -350,32 +372,43 @@ export const getMe = async (req, res) => {
 // @access  Private
 export const logout = async (req, res) => {
   try {
-    // Extract token from Authorization header
-    let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    // Extract token from cookie or Authorization header
+    let token = req.cookies.token;
+    
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
       token = req.headers.authorization.split(" ")[1];
     }
 
-    if (!token) {
-      return sendError(res, 400, "Token not provided");
+    if (token) {
+      // Decode token without verifying to get exp
+      const decoded = jwt.decode(token);
+      if (decoded && decoded.exp) {
+        // Calculate expiry date for blacklist (when token would naturally expire)
+        const expiresAt = new Date(decoded.exp * 1000);
+        // Store token in blacklist
+        await TokenBlacklist.create({ token, expiresAt, reason: "logout" });
+      }
     }
 
-    // Decode token without verifying to get exp (we already verified in middleware)
-    const decoded = jwt.decode(token);
-    if (!decoded || !decoded.exp) {
-      return sendError(res, 400, "Invalid token");
-    }
-
-    // Calculate expiry date for blacklist (when token would naturally expire)
-    const expiresAt = new Date(decoded.exp * 1000);
-
-    // Store token in blacklist
-    await TokenBlacklist.create({ token, expiresAt, reason: "logout" });
+    // Clear the HTTP-only cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
 
     return sendSuccess(res, 200, "Logged out successfully");
   } catch (error) {
     // Handle duplicate entry (already blacklisted)
     if (error.code === 11000) {
+      // Still clear the cookie even if token already blacklisted
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      });
       return sendSuccess(res, 200, "Logged out successfully");
     }
     return sendError(res, 500, error.message);

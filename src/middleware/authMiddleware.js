@@ -11,7 +11,12 @@ export const verifyToken = async (req, res, next) => {
   try {
     let token;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    // First, try to get token from HTTP-only cookie
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    // Fallback to Authorization header (for backward compatibility)
+    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
 
@@ -138,7 +143,12 @@ export const optionalAuth = async (req, res, next) => {
   try {
     let token;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    // First, try to get token from HTTP-only cookie
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    // Fallback to Authorization header (for backward compatibility)
+    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
 

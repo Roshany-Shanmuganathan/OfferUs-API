@@ -66,9 +66,9 @@ const seedAdmin = async () => {
     console.log("✓ Admin user created successfully!");
     console.log("Email:", adminEmail);
     console.log("Password:", adminPassword);
-    console.log("Please change the admin password after first login!");
+    console.log("⚠️  Please change the admin password after first login!");
     console.log(
-      "Update ADMIN_EMAIL and ADMIN_PASSWORD in .env file for custom credentials"
+      "⚠️  Update ADMIN_EMAIL and ADMIN_PASSWORD in .env file for custom credentials"
     );
 
     process.exit(0);
