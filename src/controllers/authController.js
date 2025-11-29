@@ -21,7 +21,16 @@ export const registerMember = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { email, password, firstName, lastName, mobileNumber, address, dateOfBirth, gender } = req.body;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      mobileNumber,
+      address,
+      dateOfBirth,
+      gender,
+    } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -52,7 +61,9 @@ export const registerMember = async (req, res) => {
     }
 
     // Check if user already exists
-    const userExists = await User.findOne({ email: normalizedEmail }).session(session);
+    const userExists = await User.findOne({ email: normalizedEmail }).session(
+      session
+    );
     if (userExists) {
       await session.abortTransaction();
       session.endSession();
@@ -103,20 +114,21 @@ export const registerMember = async (req, res) => {
     // Set HTTP-only cookie with token
     const cookieOptions = {
       httpOnly: true, // Prevent JavaScript access
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: 'strict', // CSRF protection
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      sameSite: "strict", // CSRF protection
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
-      path: '/', // Available site-wide
+      path: "/", // Available site-wide
     };
 
-    res.cookie('token', token, cookieOptions);
+    res.cookie("token", token, cookieOptions);
 
     // Remove password from response
     const userResponse = newUser.toObject();
     delete userResponse.password;
 
-    // Don't send token in response body for security
+    // Send token in response body for clients that need it (mobile apps, Postman, etc.)
     return sendSuccess(res, 201, "Member registered successfully", {
+      token,
       user: userResponse,
     });
   } catch (error) {
@@ -154,7 +166,15 @@ export const registerPartner = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { email, password, partnerName, shopName, location, category, contactInfo } = req.body;
+    const {
+      email,
+      password,
+      partnerName,
+      shopName,
+      location,
+      category,
+      contactInfo,
+    } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -185,7 +205,9 @@ export const registerPartner = async (req, res) => {
     }
 
     // Check if user already exists
-    const userExists = await User.findOne({ email: normalizedEmail }).session(session);
+    const userExists = await User.findOne({ email: normalizedEmail }).session(
+      session
+    );
     if (userExists) {
       await session.abortTransaction();
       session.endSession();
@@ -307,7 +329,11 @@ export const login = async (req, res) => {
         return sendError(res, 403, "Partner profile not found");
       }
       if (partner.status !== "approved") {
-        return sendError(res, 403, "Partner account is pending approval. Please wait for admin approval.");
+        return sendError(
+          res,
+          403,
+          "Partner account is pending approval. Please wait for admin approval."
+        );
       }
     }
 
@@ -316,20 +342,21 @@ export const login = async (req, res) => {
     // Set HTTP-only cookie with token
     const cookieOptions = {
       httpOnly: true, // Prevent JavaScript access
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: 'strict', // CSRF protection
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      sameSite: "strict", // CSRF protection
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
-      path: '/', // Available site-wide
+      path: "/", // Available site-wide
     };
 
-    res.cookie('token', token, cookieOptions);
+    res.cookie("token", token, cookieOptions);
 
     // Remove password from response
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    // Don't send token in response body for security
+    // Send token in response body for clients that need it (mobile apps, Postman, etc.)
     return sendSuccess(res, 200, "Login successful", {
+      token,
       user: userResponse,
     });
   } catch (error) {
@@ -374,8 +401,12 @@ export const logout = async (req, res) => {
   try {
     // Extract token from cookie or Authorization header
     let token = req.cookies.token;
-    
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+
+    if (
+      !token &&
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
       token = req.headers.authorization.split(" ")[1];
     }
 
@@ -391,11 +422,11 @@ export const logout = async (req, res) => {
     }
 
     // Clear the HTTP-only cookie
-    res.clearCookie('token', {
+    res.clearCookie("token", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
     });
 
     return sendSuccess(res, 200, "Logged out successfully");
@@ -403,11 +434,11 @@ export const logout = async (req, res) => {
     // Handle duplicate entry (already blacklisted)
     if (error.code === 11000) {
       // Still clear the cookie even if token already blacklisted
-      res.clearCookie('token', {
+      res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
       });
       return sendSuccess(res, 200, "Logged out successfully");
     }
