@@ -67,7 +67,10 @@ const partnerSchema = new mongoose.Schema(
         trim: true,
         match: [/^[0-9]{5}$/, "Postal code must be 5 digits"],
       },
-     
+      coordinates: {
+        latitude: Number,
+        longitude: Number,
+      },
     },
     category: {
       type: String,
