@@ -57,9 +57,19 @@ MONGO_URI=mongodb://localhost:27017/offer-app
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRE=30d
 
+# Frontend URL Configuration (REQUIRED for CORS and cookies)
+# IMPORTANT: Set this to your frontend URL for proper CORS and cookie settings
+# For local development: http://localhost:3000
+# For production: https://your-frontend-domain.com
+# For multiple origins (comma-separated): http://localhost:3000,https://your-frontend-domain.com
+FRONTEND_URL=http://localhost:3000
+
 # Admin Seeder Configuration (optional - defaults provided)
 ADMIN_EMAIL=admin@offerapp.com
-ADMIN_PASSWORD=Admin123!@#
+ADMIN_PASSWORD=Admin@123
+
+# Optional: Update admin password when running seeder
+# UPDATE_ADMIN_PASSWORD=true
 ```
 
 4. Seed admin user (required for admin access):

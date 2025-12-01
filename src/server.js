@@ -12,12 +12,40 @@ connectDB();
 // Initialize Express app
 const app = express();
 
+// Trust proxy (required for Vercel and other platforms that use reverse proxies)
+// This ensures req.protocol returns 'https' when behind a proxy
+app.set('trust proxy', 1);
+
 // CORS configuration - allow credentials for cookies
+// Support multiple origins for development and production
+// FRONTEND_URL can be a single URL or comma-separated list
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:3000'];
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true, // Allow cookies to be sent
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      // For development, allow localhost on any port
+      if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+        callback(null, true);
+      } else {
+        console.error('CORS: Origin not allowed:', origin);
+        console.error('CORS: Allowed origins:', allowedOrigins);
+        callback(new Error(`Not allowed by CORS. Origin: ${origin}, Allowed: ${allowedOrigins.join(', ')}`));
+      }
+    }
+  },
+  credentials: true, // Allow cookies to be sent - REQUIRED for HTTP-only cookies
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Set-Cookie'], // Expose Set-Cookie header
 };
 
 // Middleware

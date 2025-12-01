@@ -13,6 +13,75 @@ const generateToken = (id) => {
   });
 };
 
+// Get cookie options for setting authentication token
+// Handles cross-domain scenarios (e.g., frontend on different domain than backend)
+// Uses FRONTEND_URL from environment variables for proper cookie domain/security settings
+const getCookieOptions = (req) => {
+  // Check if backend is running on HTTPS (production/Vercel)
+  const isBackendHTTPS = process.env.NODE_ENV === "production" || 
+    (req && req.protocol === 'https') ||
+    (process.env.VERCEL === '1') ||
+    (process.env.VERCEL_URL && process.env.VERCEL_URL.includes('https'));
+  
+  // Get FRONTEND_URL from environment - supports single URL or comma-separated list
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrls = frontendUrl.split(',').map(url => url.trim());
+  
+  // Determine if we're in a cross-domain scenario
+  // Cross-domain means frontend and backend are on different domains/ports
+  const isCrossDomain = !frontendUrls.some(url => 
+    url === 'http://localhost:3000' || url.includes('localhost')
+  );
+  
+  // Extract domain from FRONTEND_URL for cookie domain setting (if needed)
+  // Only set domain for cross-domain scenarios in production
+  let domain = undefined;
+  if (isCrossDomain && isBackendHTTPS && frontendUrls.length > 0) {
+    try {
+      const url = new URL(frontendUrls[0]);
+      // Only set domain if it's a proper domain (not localhost)
+      if (!url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+        // Extract root domain (e.g., .example.com from app.example.com)
+        const parts = url.hostname.split('.');
+        if (parts.length > 1) {
+          domain = `.${parts.slice(-2).join('.')}`;
+        }
+      }
+    } catch (e) {
+      // Invalid URL, skip domain setting
+    }
+  }
+  
+  // For HTTPS backend or cross-domain, we need sameSite: "none" and secure: true
+  // Browsers require secure: true when sameSite is "none"
+  const needsSecureCookie = isBackendHTTPS || isCrossDomain;
+  const needsSameSiteNone = isCrossDomain || isBackendHTTPS;
+  
+  const cookieOptions = {
+    httpOnly: true, // Prevent JavaScript access - REQUIRED for security
+    secure: needsSecureCookie, // HTTPS required for cross-domain or when backend is HTTPS
+    sameSite: needsSameSiteNone ? "none" : "lax", // "none" for cross-domain/HTTPS, "lax" for same-domain
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
+    path: "/", // Available site-wide
+    ...(domain && { domain }), // Set domain only if needed for cross-domain
+  };
+  
+  // Log cookie settings in development for debugging
+  if (process.env.NODE_ENV !== "production") {
+    console.log('Cookie Options:', {
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      domain: cookieOptions.domain || 'not set',
+      isBackendHTTPS,
+      isCrossDomain,
+      frontendUrl,
+      protocol: req?.protocol,
+    });
+  }
+  
+  return cookieOptions;
+};
+
 // @desc    Register a new member
 // @route   POST /api/auth/register/member
 // @access  Public
@@ -112,24 +181,20 @@ export const registerMember = async (req, res) => {
     const token = generateToken(newUser._id);
 
     // Set HTTP-only cookie with token
-    const cookieOptions = {
-      httpOnly: true, // Prevent JavaScript access
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
-      sameSite: "strict", // CSRF protection
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
-      path: "/", // Available site-wide
-    };
-
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, getCookieOptions(req));
 
     // Remove password from response
     const userResponse = newUser.toObject();
     delete userResponse.password;
 
+    // Get member data
+    const member = await Member.findOne({ userId: newUser._id });
+
     // Send token in response body for clients that need it (mobile apps, Postman, etc.)
     return sendSuccess(res, 201, "Member registered successfully", {
       token,
       user: userResponse,
+      member: member || undefined,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -340,24 +405,27 @@ export const login = async (req, res) => {
     const token = generateToken(user._id);
 
     // Set HTTP-only cookie with token
-    const cookieOptions = {
-      httpOnly: true, // Prevent JavaScript access
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
-      sameSite: "strict", // CSRF protection
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT_EXPIRE)
-      path: "/", // Available site-wide
-    };
-
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, getCookieOptions(req));
 
     // Remove password from response
     const userResponse = user.toObject();
     delete userResponse.password;
 
+    // Get additional data based on role
+    let additionalData = {};
+    if (user.role === "partner") {
+      const partner = await Partner.findOne({ userId: user._id });
+      additionalData.partner = partner || undefined;
+    } else if (user.role === "member") {
+      const member = await Member.findOne({ userId: user._id });
+      additionalData.member = member || undefined;
+    }
+
     // Send token in response body for clients that need it (mobile apps, Postman, etc.)
     return sendSuccess(res, 200, "Login successful", {
       token,
       user: userResponse,
+      ...additionalData,
     });
   } catch (error) {
     return sendError(res, 500, error.message);
@@ -421,12 +489,13 @@ export const logout = async (req, res) => {
       }
     }
 
-    // Clear the HTTP-only cookie
+    // Clear the HTTP-only cookie (use same options as setting)
+    const cookieOptions = getCookieOptions(req);
     res.clearCookie("token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
     });
 
     return sendSuccess(res, 200, "Logged out successfully");
@@ -434,11 +503,12 @@ export const logout = async (req, res) => {
     // Handle duplicate entry (already blacklisted)
     if (error.code === 11000) {
       // Still clear the cookie even if token already blacklisted
+      const cookieOptions = getCookieOptions(req);
       res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        path: "/",
+        httpOnly: cookieOptions.httpOnly,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        path: cookieOptions.path,
       });
       return sendSuccess(res, 200, "Logged out successfully");
     }
