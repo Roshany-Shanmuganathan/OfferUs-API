@@ -92,15 +92,8 @@ const partnerSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "banned", "suspended"],
+      enum: ["pending", "approved", "rejected", "suspended"],
       default: "pending",
-    },
-    bannedAt: {
-      type: Date,
-    },
-    banReason: {
-      type: String,
-      trim: true,
     },
     reason: {
       type: String,

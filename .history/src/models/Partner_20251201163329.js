@@ -67,7 +67,10 @@ const partnerSchema = new mongoose.Schema(
         trim: true,
         match: [/^[0-9]{5}$/, "Postal code must be 5 digits"],
       },
-     
+      coordinates: {
+        latitude: Number,
+        longitude: Number,
+      },
     },
     category: {
       type: String,
@@ -92,15 +95,8 @@ const partnerSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "banned", "suspended"],
+      enum: ["pending", "approved", "rejected", "suspended"],
       default: "pending",
-    },
-    bannedAt: {
-      type: Date,
-    },
-    banReason: {
-      type: String,
-      trim: true,
     },
     reason: {
       type: String,
