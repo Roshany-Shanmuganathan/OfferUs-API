@@ -9,6 +9,9 @@ import {
   getPendingPartners,
   approvePartner,
   rejectPartner,
+  banPartner,
+  unbanPartner,
+  deletePartner,
   updatePartnerPremiumStatus,
 } from '../controllers/partnerController.js';
 import { verifyToken, requireRole, verifyPartnerApproved } from '../middleware/authMiddleware.js';
@@ -27,6 +30,15 @@ router.patch('/:id/approve', verifyToken, requireRole('admin'), approvePartner);
 
 // PATCH /api/partners/:id/reject - Reject partner (admin only)
 router.patch('/:id/reject', verifyToken, requireRole('admin'), rejectPartner);
+
+// PATCH /api/partners/:id/ban - Ban partner (admin only)
+router.patch('/:id/ban', verifyToken, requireRole('admin'), banPartner);
+
+// PATCH /api/partners/:id/unban - Unban partner (admin only)
+router.patch('/:id/unban', verifyToken, requireRole('admin'), unbanPartner);
+
+// DELETE /api/partners/:id - Delete partner (admin only, cannot delete approved partners)
+router.delete('/:id', verifyToken, requireRole('admin'), deletePartner);
 
 // PUT /api/partners/:id/premium - Update premium status (admin only)
 router.put('/:id/premium', verifyToken, requireRole('admin'), updatePartnerPremiumStatus);

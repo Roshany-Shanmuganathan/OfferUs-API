@@ -23,9 +23,13 @@ const notificationSchema = new mongoose.Schema(
     relatedEntity: {
       entityType: {
         type: String,
-        enum: ['offer', 'partner', 'review', null],
+        enum: ['offer', 'partner', 'review'],
+        required: false,
       },
-      entityId: mongoose.Schema.Types.ObjectId,
+      entityId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: false,
+      },
     },
     isRead: {
       type: Boolean,

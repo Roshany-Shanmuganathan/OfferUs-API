@@ -387,19 +387,22 @@ export const login = async (req, res) => {
       return sendError(res, 401, "User account is inactive");
     }
 
-    // For partners, check if they're approved
+    // For partners, check status but allow banned partners to login (to see ban notification)
     if (user.role === "partner") {
       const partner = await Partner.findOne({ userId: user._id });
       if (!partner) {
         return sendError(res, 403, "Partner profile not found");
       }
-      if (partner.status !== "approved") {
+      // Allow banned partners to login (they need to see their ban notification)
+      // Block pending and rejected partners
+      if (partner.status === "pending" || partner.status === "rejected") {
         return sendError(
           res,
           403,
           "Partner account is pending approval. Please wait for admin approval."
         );
       }
+      // Banned partners can login but will have limited access
     }
 
     const token = generateToken(user._id);

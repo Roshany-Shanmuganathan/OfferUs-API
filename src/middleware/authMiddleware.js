@@ -124,6 +124,10 @@ export const verifyPartnerApproved = async (req, res, next) => {
       return sendError(res, 404, 'Partner profile not found');
     }
 
+    if (partner.status === 'banned') {
+      return sendError(res, 403, 'Your partner account has been banned. Please contact support.');
+    }
+
     if (partner.status !== 'approved') {
       return sendError(res, 403, 'Partner account is not approved yet. Please wait for admin approval.');
     }
