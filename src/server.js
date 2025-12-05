@@ -5,13 +5,10 @@ import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import routes from './routes/index.js';
-import { startCronJobs } from './utils/cronScheduler.js';
 
 // Connect to database
 connectDB().then(() => {
-  // Start cron jobs after database connection is established
-  console.log('Starting cron jobs...');
-  startCronJobs();
+  console.log('Database connected successfully');
 }).catch((error) => {
   console.error('Failed to connect to database:', error);
   process.exit(1);

@@ -366,3 +366,4 @@ curl -X DELETE http://localhost:5000/api/partners/507f1f77bcf86cd799439011 \
 - Bulk operations (ban/unban multiple partners)
 - Partner appeal system for bans
 
+

@@ -9,7 +9,6 @@ import savedOfferRoutes from './savedOfferRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import monthlyReportsRoutes from './monthlyReportsRoutes.js';
-import schedulerRoutes from './schedulerRoutes.js';
 
 const router = express.Router();
 
@@ -26,6 +25,5 @@ router.use('/saved-offers', savedOfferRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/monthly-reports', monthlyReportsRoutes);
-router.use('/scheduler', schedulerRoutes);
 
 export default router;
