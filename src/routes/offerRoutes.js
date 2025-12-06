@@ -4,6 +4,8 @@ import {
   getOffer,
   clickOffer,
   getCategories,
+  addCategory,
+  deleteCategory,
   createOffer,
   getPartnerOffers,
   getPartnerOffer,
@@ -21,6 +23,13 @@ const router = express.Router();
 // Public routes - Specific routes must come before parameterized routes
 // GET /api/offers/categories - Get offer categories (public)
 router.get('/categories', getCategories);
+
+// Admin routes for category management - must come before /:id routes
+// POST /api/offers/categories - Add category (admin only)
+router.post('/categories', verifyToken, requireRole('admin'), addCategory);
+
+// DELETE /api/offers/categories/:name - Delete category (admin only)
+router.delete('/categories/:name', verifyToken, requireRole('admin'), deleteCategory);
 
 // GET /api/offers - Browse all offers (public, optional auth)
 router.get('/', authOptional, browseOffers);

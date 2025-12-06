@@ -1,6 +1,7 @@
 import Offer from '../models/Offer.js';
 import Partner from '../models/Partner.js';
 import SavedOffer from '../models/SavedOffer.js';
+import Category from '../models/Category.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
 import { notifyNewOffer } from '../utils/notificationService.js';
 
@@ -11,7 +12,7 @@ import { notifyNewOffer } from '../utils/notificationService.js';
  */
 export const browseOffers = async (req, res) => {
   try {
-    const { category, city, search, page = 1, limit = 10 } = req.query;
+    const { category, city, search, page = 1, limit = 10, sortBy } = req.query;
 
     const query = {
       isActive: true,
@@ -56,9 +57,43 @@ export const browseOffers = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+    // Determine sort order based on sortBy parameter
+    // Normalize sortBy to lowercase to handle case variations
+    const normalizedSortBy = sortBy ? String(sortBy).toLowerCase() : 'newest';
+    let sortOption = { createdAt: -1 }; // Default: newest first
+    
+    switch (normalizedSortBy) {
+      case 'newest':
+        sortOption = { createdAt: -1 };
+        break;
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'discount-high':
+        sortOption = { discount: -1 };
+        break;
+      case 'discount-low':
+        sortOption = { discount: 1 };
+        break;
+      case 'price-low':
+        sortOption = { discountedPrice: 1 };
+        break;
+      case 'price-high':
+        sortOption = { discountedPrice: -1 };
+        break;
+      case 'expiring':
+        // Sort by expiry date ascending (earliest expiry first = expiring soon)
+        sortOption = { expiryDate: 1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 };
+    }
+
+    console.log('Sorting by:', normalizedSortBy, 'Sort option:', sortOption); // Debug log
+
     const offers = await Offer.find(query)
       .populate('partner', 'partnerName shopName location category')
-      .sort({ createdAt: -1 })
+      .sort(sortOption)
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -194,14 +229,135 @@ export const clickOffer = async (req, res) => {
  */
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Offer.distinct('category', {
+    // Get predefined categories from Category model
+    const predefinedCategories = await Category.find({ isActive: true })
+      .select('name')
+      .sort({ name: 1 });
+    
+    const predefinedCategoryNames = predefinedCategories.map((cat) => cat.name);
+    
+    // Get categories from existing offers
+    const offerCategories = await Offer.distinct('category', {
+      isActive: true,
+      expiryDate: { $gt: new Date() },
+    });
+    
+    // Combine and remove duplicates, sort alphabetically
+    const allCategories = [...new Set([...predefinedCategoryNames, ...offerCategories])].sort();
+
+    return sendSuccess(res, 200, 'Categories retrieved successfully', { categories: allCategories });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return sendError(res, 500, error.message);
+  }
+};
+
+/**
+ * @desc    Add a new category (Admin only)
+ * @route   POST /api/offers/categories
+ * @access  Private (Admin)
+ */
+export const addCategory = async (req, res) => {
+  try {
+    console.log('addCategory called with body:', req.body);
+    console.log('Request headers:', req.headers);
+    
+    const { name } = req.body;
+
+    if (!name) {
+      console.error('Category name is missing');
+      return sendError(res, 400, 'Category name is required');
+    }
+
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      console.error('Category name is invalid:', name);
+      return sendError(res, 400, 'Category name must be a non-empty string');
+    }
+
+    // Normalize category name (uppercase, trim)
+    const normalizedName = name.trim().toUpperCase();
+
+    // Check if Category model is available
+    if (!Category) {
+      console.error('Category model is not available');
+      return sendError(res, 500, 'Category model not initialized');
+    }
+
+    // Check if category already exists
+    const existingCategory = await Category.findOne({ name: normalizedName });
+
+    if (existingCategory) {
+      if (existingCategory.isActive) {
+        return sendError(res, 400, 'Category already exists');
+      } else {
+        // Reactivate inactive category
+        existingCategory.isActive = true;
+        await existingCategory.save();
+        return sendSuccess(res, 200, 'Category reactivated successfully', {
+          category: existingCategory.name,
+        });
+      }
+    }
+
+    // Create new category
+    const category = await Category.create({
+      name: normalizedName,
+      isActive: true,
+    });
+
+    return sendSuccess(res, 201, 'Category added successfully', { category: category.name });
+  } catch (error) {
+    console.error('Error adding category:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    
+    if (error.code === 11000) {
+      return sendError(res, 400, 'Category already exists');
+    }
+    
+    // Return detailed error for debugging
+    const errorMessage = error.message || 'Failed to add category';
+    return sendError(res, 500, `Server error: ${errorMessage}`);
+  }
+};
+
+/**
+ * @desc    Delete a category (Admin only)
+ * @route   DELETE /api/offers/categories/:name
+ * @access  Private (Admin)
+ */
+export const deleteCategory = async (req, res) => {
+  try {
+    const categoryName = decodeURIComponent(req.params.name).toUpperCase();
+
+    const category = await Category.findOne({ name: categoryName });
+    
+    if (!category) {
+      return sendError(res, 404, 'Category not found');
+    }
+
+    // Check if any active offers are using this category
+    const offersWithCategory = await Offer.countDocuments({
+      category: categoryName,
       isActive: true,
       expiryDate: { $gt: new Date() },
     });
 
-    return sendSuccess(res, 200, 'Categories retrieved successfully', { categories });
+    if (offersWithCategory > 0) {
+      // Deactivate instead of delete if offers exist
+      category.isActive = false;
+      await category.save();
+      return sendSuccess(res, 200, 'Category deactivated successfully (offers still using it)');
+    }
+
+    // Delete if no active offers use it
+    await category.deleteOne();
+
+    return sendSuccess(res, 200, 'Category deleted successfully');
   } catch (error) {
-    return sendError(res, 500, error.message);
+    console.error('Error deleting category:', error);
+    return sendError(res, 500, error.message || 'Failed to delete category');
   }
 };
 
