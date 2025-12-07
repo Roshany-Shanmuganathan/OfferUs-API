@@ -5,6 +5,7 @@ import Partner from "../models/Partner.js";
 import Member from "../models/Member.js";
 import TokenBlacklist from "../models/TokenBlacklist.js";
 import { sendSuccess, sendError } from "../utils/responseFormat.js";
+import { notifyAdminsMemberRegistered, notifyAdminsPartnerRegistered } from "../utils/notificationService.js";
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -184,6 +185,13 @@ export const registerMember = async (req, res) => {
     // Get member data
     const member = await Member.findOne({ userId: newUser._id });
 
+    // Notify admins about new member registration (non-blocking)
+    if (member) {
+      notifyAdminsMemberRegistered(member, newUser).catch((error) => {
+        console.error('Failed to notify admins about member registration:', error);
+      });
+    }
+
     // Send token in response body for clients that need it (mobile apps, Postman, etc.)
     return sendSuccess(res, 201, "Member registered successfully", {
       token,
@@ -316,6 +324,11 @@ export const registerPartner = async (req, res) => {
     // Commit transaction
     await session.commitTransaction();
     session.endSession();
+
+    // Notify admins about new partner registration (non-blocking)
+    notifyAdminsPartnerRegistered(partner[0], newUser).catch((error) => {
+      console.error('Failed to notify admins about partner registration:', error);
+    });
 
     return sendSuccess(
       res,
