@@ -1,6 +1,12 @@
 import Partner from '../models/Partner.js';
 import Notification from '../models/Notification.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @desc    Get partner profile
@@ -67,6 +73,98 @@ export const updatePartnerProfile = async (req, res) => {
     await partner.save();
 
     return sendSuccess(res, 200, 'Partner profile updated successfully', { partner });
+  } catch (error) {
+    return sendError(res, 500, error.message);
+  }
+};
+
+/**
+ * @desc    Upload partner profile image
+ * @route   POST /api/partners/profile/image
+ * @access  Private (Partner)
+ */
+export const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No image file provided');
+    }
+
+    const partner = await Partner.findOne({ userId: req.user._id });
+
+    if (!partner) {
+      // Delete uploaded file if partner not found
+      if (req.file.path) {
+        fs.unlinkSync(req.file.path);
+      }
+      return sendError(res, 404, 'Partner profile not found');
+    }
+
+    // Delete old profile image if exists
+    if (partner.profileImage) {
+      const oldImagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(partner.profileImage));
+      if (fs.existsSync(oldImagePath)) {
+        try {
+          fs.unlinkSync(oldImagePath);
+        } catch (err) {
+          console.error('Error deleting old profile image:', err);
+        }
+      }
+    }
+
+    // Save image URL (relative path from uploads directory)
+    const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+    partner.profileImage = imageUrl;
+    await partner.save();
+    await partner.populate('userId', 'email');
+
+    return sendSuccess(res, 200, 'Profile image uploaded successfully', {
+      partner,
+    });
+  } catch (error) {
+    // Delete uploaded file on error
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error('Error deleting uploaded file:', err);
+      }
+    }
+    return sendError(res, 500, error.message);
+  }
+};
+
+/**
+ * @desc    Delete partner profile image
+ * @route   DELETE /api/partners/profile/image
+ * @access  Private (Partner)
+ */
+export const deleteProfileImage = async (req, res) => {
+  try {
+    const partner = await Partner.findOne({ userId: req.user._id });
+
+    if (!partner) {
+      return sendError(res, 404, 'Partner profile not found');
+    }
+
+    if (!partner.profileImage) {
+      return sendError(res, 400, 'No profile image to delete');
+    }
+
+    // Delete file from filesystem
+    const imagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(partner.profileImage));
+    if (fs.existsSync(imagePath)) {
+      try {
+        fs.unlinkSync(imagePath);
+      } catch (err) {
+        console.error('Error deleting profile image file:', err);
+      }
+    }
+
+    // Remove image URL from partner
+    partner.profileImage = undefined;
+    await partner.save();
+
+    return sendSuccess(res, 200, 'Profile image deleted successfully');
   } catch (error) {
     return sendError(res, 500, error.message);
   }

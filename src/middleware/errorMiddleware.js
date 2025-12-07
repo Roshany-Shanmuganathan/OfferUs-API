@@ -51,6 +51,17 @@ export const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 401 };
   }
 
+  // Multer errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    const message = 'File too large. Maximum size is 5MB';
+    error = { message, statusCode: 400 };
+  }
+
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    const message = 'Unexpected file field';
+    error = { message, statusCode: 400 };
+  }
+
   const statusCode = error.statusCode || 500;
   const message = error.message || 'Server Error';
   const errors = error.errors || null;

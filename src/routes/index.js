@@ -24,6 +24,7 @@ router.use('/reviews', reviewRoutes);
 router.use('/saved-offers', savedOfferRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/admin/analytics', analyticsRoutes); // Admin analytics endpoint
 router.use('/monthly-reports', monthlyReportsRoutes);
 
 export default router;

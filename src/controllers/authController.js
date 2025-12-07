@@ -380,21 +380,40 @@ export const login = async (req, res) => {
     }
 
     // For partners, check status but allow banned partners to login (to see ban notification)
+    let partner = null;
     if (user.role === "partner") {
-      const partner = await Partner.findOne({ userId: user._id });
+      partner = await Partner.findOne({ userId: user._id });
       if (!partner) {
         return sendError(res, 403, "Partner profile not found");
       }
-      // Allow banned partners to login (they need to see their ban notification)
-      // Block pending and rejected partners
-      if (partner.status === "pending" || partner.status === "rejected") {
+      
+      // Block pending, rejected, and suspended partners
+      if (partner.status === "pending") {
         return sendError(
           res,
           403,
           "Partner account is pending approval. Please wait for admin approval."
         );
       }
+      
+      if (partner.status === "rejected") {
+        return sendError(
+          res,
+          403,
+          "Partner account has been rejected. Please contact admin for more information."
+        );
+      }
+      
+      if (partner.status === "suspended") {
+        return sendError(
+          res,
+          403,
+          "Partner account has been suspended. Please contact admin for more information."
+        );
+      }
+      
       // Banned partners can login but will have limited access
+      // Approved partners can login normally
     }
 
     const token = generateToken(user._id);
@@ -409,7 +428,10 @@ export const login = async (req, res) => {
     // Get additional data based on role
     let additionalData = {};
     if (user.role === "partner") {
-      const partner = await Partner.findOne({ userId: user._id });
+      // Reuse partner query from above if already fetched
+      if (!partner) {
+        partner = await Partner.findOne({ userId: user._id });
+      }
       additionalData.partner = partner || undefined;
     } else if (user.role === "member") {
       const member = await Member.findOne({ userId: user._id });
@@ -509,6 +531,52 @@ export const logout = async (req, res) => {
       });
       return sendSuccess(res, 200, "Logged out successfully");
     }
+    return sendError(res, 500, error.message);
+  }
+};
+
+// @desc    Change password
+// @route   POST /api/auth/change-password
+// @access  Private
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return sendError(res, 400, "Current password and new password are required");
+    }
+
+    // Validate new password length
+    if (newPassword.length < 8) {
+      return sendError(res, 400, "New password must be at least 8 characters long");
+    }
+
+    // Get user with password field
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return sendError(res, 404, "User not found");
+    }
+
+    // Verify current password
+    const isPasswordCorrect = await user.comparePassword(currentPassword);
+    if (!isPasswordCorrect) {
+      return sendError(res, 401, "Current password is incorrect");
+    }
+
+    // Check if new password is different from current password
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      return sendError(res, 400, "New password must be different from current password");
+    }
+
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
+    await user.save();
+
+    return sendSuccess(res, 200, "Password changed successfully");
+  } catch (error) {
     return sendError(res, 500, error.message);
   }
 };
