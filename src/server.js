@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import routes from './routes/index.js';
+import { startCronScheduler } from './utils/cronScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,8 @@ const __dirname = path.dirname(__filename);
 // Connect to database
 connectDB().then(() => {
   console.log('Database connected successfully');
+  // Start cron scheduler after database connection is established
+  startCronScheduler();
 }).catch((error) => {
   console.error('Failed to connect to database:', error);
   process.exit(1);
