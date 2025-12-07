@@ -1,10 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Category name is required'],
+      required: [true, "Category name is required"],
       unique: true,
       trim: true,
     },
@@ -18,11 +18,10 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient searching
-categorySchema.index({ name: 1 });
+// Note: No need to manually index 'name' field as 'unique: true' already creates an index
 
 // Check if model already exists to avoid overwriting
-const Category = mongoose.models.Category || mongoose.model('Category', categorySchema);
+const Category =
+  mongoose.models.Category || mongoose.model("Category", categorySchema);
 
 export default Category;
-

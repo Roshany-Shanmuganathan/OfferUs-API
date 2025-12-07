@@ -1,12 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const tokenBlacklistSchema = new mongoose.Schema(
   {
     token: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      unique: true, // unique: true automatically creates an index
     },
     expiresAt: {
       type: Date,
@@ -15,12 +14,12 @@ const tokenBlacklistSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      default: 'logout',
+      default: "logout",
     },
   },
   { timestamps: true }
 );
 
-const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
+const TokenBlacklist = mongoose.model("TokenBlacklist", tokenBlacklistSchema);
 
 export default TokenBlacklist;
