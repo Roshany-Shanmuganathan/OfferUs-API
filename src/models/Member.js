@@ -39,6 +39,10 @@ const memberSchema = new mongoose.Schema(
       type: String,
       enum: ["male", "female", "other"],
     },
+    profilePicture: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

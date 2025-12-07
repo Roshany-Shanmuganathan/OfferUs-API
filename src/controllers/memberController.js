@@ -1,5 +1,11 @@
 import Member from '../models/Member.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @desc    Get member profile
@@ -33,6 +39,19 @@ export const updateMemberProfile = async (req, res) => {
 
     if (!member) {
       return sendError(res, 404, 'Member profile not found');
+    }
+
+    // Handle profile picture upload
+    if (req.file) {
+      // Delete old profile picture if exists
+      if (member.profilePicture) {
+        const oldImagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(member.profilePicture));
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+      // Store the relative path to the uploaded file
+      member.profilePicture = `/uploads/profile-images/${req.file.filename}`;
     }
 
     // Update fields
