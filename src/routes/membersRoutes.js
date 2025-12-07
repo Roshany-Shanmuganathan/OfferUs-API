@@ -4,7 +4,7 @@ import {
   updateMemberProfile,
 } from '../controllers/memberController.js';
 import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
-import { uploadProfileImage } from '../middleware/uploadMiddleware.js';
+import { createCloudinaryUpload } from '../services/cloudinaryService.js';
 
 const router = express.Router();
 
@@ -13,7 +13,22 @@ const router = express.Router();
 router.get('/profile', verifyToken, requireRole('member'), getMemberProfile);
 
 // PUT /api/members/profile - Update own member profile (member only)
-router.put('/profile', verifyToken, requireRole('member'), uploadProfileImage, updateMemberProfile);
+// Supports both file upload and direct URL update
+router.put(
+  '/profile',
+  verifyToken,
+  requireRole('member'),
+  (req, res, next) => {
+    // Only use multer if Content-Type is multipart/form-data
+    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+      const upload = createCloudinaryUpload('member-profiles', 'profilePicture');
+      upload(req, res, next);
+    } else {
+      next();
+    }
+  },
+  updateMemberProfile
+);
 
 export default router;
 

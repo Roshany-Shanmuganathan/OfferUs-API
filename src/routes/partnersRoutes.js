@@ -17,7 +17,7 @@ import {
   updatePartnerPremiumStatus,
 } from '../controllers/partnerController.js';
 import { verifyToken, requireRole, verifyPartnerApproved } from '../middleware/authMiddleware.js';
-import { uploadProfileImage as uploadMiddleware } from '../middleware/uploadMiddleware.js';
+import { createCloudinaryUpload } from '../services/cloudinaryService.js';
 
 const router = express.Router();
 
@@ -54,7 +54,16 @@ router.get('/profile', verifyToken, requireRole('partner'), getPartnerProfile);
 router.put('/profile', verifyToken, requireRole('partner'), updatePartnerProfile);
 
 // POST /api/partners/profile/image - Upload partner profile image (partner only)
-router.post('/profile/image', verifyToken, requireRole('partner'), uploadMiddleware, uploadProfileImage);
+router.post(
+  '/profile/image',
+  verifyToken,
+  requireRole('partner'),
+  (req, res, next) => {
+    const upload = createCloudinaryUpload('partner-profiles', 'profileImage');
+    upload(req, res, next);
+  },
+  uploadProfileImage
+);
 
 // DELETE /api/partners/profile/image - Delete partner profile image (partner only)
 router.delete('/profile/image', verifyToken, requireRole('partner'), deleteProfileImage);

@@ -10,11 +10,15 @@ import notificationRoutes from './notificationRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import monthlyReportsRoutes from './monthlyReportsRoutes.js';
 import schedulerRoutes from './schedulerRoutes.js';
+import uploadRoutes from './uploadRoutes.js';
 
 const router = express.Router();
 
 // Authentication routes (public)
 router.use('/auth', authRoutes);
+
+// Upload routes (authenticated)
+router.use('/upload', uploadRoutes);
 
 // Entity-based routes (RBAC applied per route)
 router.use('/users', usersRoutes);

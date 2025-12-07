@@ -91,6 +91,7 @@ export const registerMember = async (req, res) => {
       address,
       dateOfBirth,
       gender,
+      profilePicture,
     } = req.body;
 
     // Validate required fields
@@ -161,6 +162,7 @@ export const registerMember = async (req, res) => {
           address,
           dateOfBirth: dateOfBirth || undefined,
           gender: gender || undefined,
+          profilePicture: profilePicture || undefined,
         },
       ],
       { session }
@@ -231,6 +233,7 @@ export const registerPartner = async (req, res) => {
       location,
       category,
       contactInfo,
+      profileImage,
     } = req.body;
 
     // Validate required fields
@@ -303,6 +306,7 @@ export const registerPartner = async (req, res) => {
             mobileNumber: contactInfo.mobileNumber,
             website: contactInfo.website || undefined,
           },
+          profileImage: profileImage || undefined,
           status: "pending",
         },
       ],

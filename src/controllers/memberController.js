@@ -1,11 +1,6 @@
 import Member from '../models/Member.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { deleteFromCloudinary, extractPublicId } from '../services/cloudinaryService.js';
 
 /**
  * @desc    Get member profile
@@ -33,7 +28,7 @@ export const getMemberProfile = async (req, res) => {
  */
 export const updateMemberProfile = async (req, res) => {
   try {
-    const { firstName, lastName, mobileNumber, address, dateOfBirth, gender } = req.body;
+    const { firstName, lastName, mobileNumber, address, dateOfBirth, gender, profilePicture } = req.body;
 
     const member = await Member.findOne({ userId: req.user._id });
 
@@ -41,17 +36,37 @@ export const updateMemberProfile = async (req, res) => {
       return sendError(res, 404, 'Member profile not found');
     }
 
-    // Handle profile picture upload
+    // Handle profile picture update (Cloudinary URL from req.body or file upload)
     if (req.file) {
-      // Delete old profile picture if exists
+      // Delete old profile picture from Cloudinary if exists
       if (member.profilePicture) {
-        const oldImagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(member.profilePicture));
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
+        const oldPublicId = extractPublicId(member.profilePicture);
+        if (oldPublicId) {
+          try {
+            await deleteFromCloudinary(oldPublicId);
+          } catch (err) {
+            console.error('Error deleting old profile picture from Cloudinary:', err);
+            // Continue even if deletion fails
+          }
         }
       }
-      // Store the relative path to the uploaded file
-      member.profilePicture = `/uploads/profile-images/${req.file.filename}`;
+      // Store Cloudinary URL from uploaded file
+      member.profilePicture = req.file.secure_url || req.file.path;
+    } else if (profilePicture !== undefined) {
+      // Handle direct URL update (from frontend Cloudinary upload)
+      // Delete old profile picture from Cloudinary if exists
+      if (member.profilePicture && member.profilePicture !== profilePicture) {
+        const oldPublicId = extractPublicId(member.profilePicture);
+        if (oldPublicId) {
+          try {
+            await deleteFromCloudinary(oldPublicId);
+          } catch (err) {
+            console.error('Error deleting old profile picture from Cloudinary:', err);
+            // Continue even if deletion fails
+          }
+        }
+      }
+      member.profilePicture = profilePicture || undefined;
     }
 
     // Update fields

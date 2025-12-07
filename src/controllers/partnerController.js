@@ -1,12 +1,7 @@
 import Partner from '../models/Partner.js';
 import Notification from '../models/Notification.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { deleteFromCloudinary, extractPublicId } from '../services/cloudinaryService.js';
 
 /**
  * @desc    Get partner profile
@@ -40,6 +35,7 @@ export const updatePartnerProfile = async (req, res) => {
       location,
       category,
       contactInfo,
+      profileImage,
     } = req.body;
 
     const partner = await Partner.findOne({ userId: req.user._id });
@@ -63,6 +59,23 @@ export const updatePartnerProfile = async (req, res) => {
         mobileNumber: contactInfo.mobileNumber || partner.contactInfo.mobileNumber,
         website: contactInfo.website !== undefined ? contactInfo.website : partner.contactInfo.website,
       };
+    }
+
+    // Handle profile image update (Cloudinary URL)
+    if (profileImage !== undefined) {
+      // Delete old image from Cloudinary if exists
+      if (partner.profileImage) {
+        const oldPublicId = extractPublicId(partner.profileImage);
+        if (oldPublicId) {
+          try {
+            await deleteFromCloudinary(oldPublicId);
+          } catch (err) {
+            console.error('Error deleting old profile image from Cloudinary:', err);
+            // Continue even if deletion fails
+          }
+        }
+      }
+      partner.profileImage = profileImage || undefined;
     }
 
     // If status was rejected, reset to pending after update
@@ -92,27 +105,24 @@ export const uploadProfileImage = async (req, res) => {
     const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
-      // Delete uploaded file if partner not found
-      if (req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
       return sendError(res, 404, 'Partner profile not found');
     }
 
-    // Delete old profile image if exists
+    // Delete old profile image from Cloudinary if exists
     if (partner.profileImage) {
-      const oldImagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(partner.profileImage));
-      if (fs.existsSync(oldImagePath)) {
+      const oldPublicId = extractPublicId(partner.profileImage);
+      if (oldPublicId) {
         try {
-          fs.unlinkSync(oldImagePath);
+          await deleteFromCloudinary(oldPublicId);
         } catch (err) {
-          console.error('Error deleting old profile image:', err);
+          console.error('Error deleting old profile image from Cloudinary:', err);
+          // Continue even if deletion fails
         }
       }
     }
 
-    // Save image URL (relative path from uploads directory)
-    const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+    // req.file from CloudinaryStorage has secure_url property
+    const imageUrl = req.file.secure_url || req.file.path;
     partner.profileImage = imageUrl;
     await partner.save();
     await partner.populate('userId', 'email');
@@ -121,14 +131,6 @@ export const uploadProfileImage = async (req, res) => {
       partner,
     });
   } catch (error) {
-    // Delete uploaded file on error
-    if (req.file && req.file.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.error('Error deleting uploaded file:', err);
-      }
-    }
     return sendError(res, 500, error.message);
   }
 };
@@ -150,13 +152,14 @@ export const deleteProfileImage = async (req, res) => {
       return sendError(res, 400, 'No profile image to delete');
     }
 
-    // Delete file from filesystem
-    const imagePath = path.join(__dirname, '../../uploads/profile-images', path.basename(partner.profileImage));
-    if (fs.existsSync(imagePath)) {
+    // Delete image from Cloudinary
+    const publicId = extractPublicId(partner.profileImage);
+    if (publicId) {
       try {
-        fs.unlinkSync(imagePath);
+        await deleteFromCloudinary(publicId);
       } catch (err) {
-        console.error('Error deleting profile image file:', err);
+        console.error('Error deleting profile image from Cloudinary:', err);
+        // Continue even if deletion fails
       }
     }
 
