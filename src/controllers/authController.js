@@ -33,24 +33,16 @@ const getCookieOptions = (req) => {
     url === 'http://localhost:3000' || url.includes('localhost')
   );
   
-  // Extract domain from FRONTEND_URL for cookie domain setting (if needed)
-  // Only set domain for cross-domain scenarios in production
+  // For cross-domain cookies, we DON'T set a domain attribute
+  // Domain attribute is only for subdomains of the same root domain
+  // For different domains (like Vercel deployments), we use sameSite: "none" and secure: true
+  // but NO domain attribute
   let domain = undefined;
-  if (isCrossDomain && isBackendHTTPS && frontendUrls.length > 0) {
-    try {
-      const url = new URL(frontendUrls[0]);
-      // Only set domain if it's a proper domain (not localhost)
-      if (!url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
-        // Extract root domain (e.g., .example.com from app.example.com)
-        const parts = url.hostname.split('.');
-        if (parts.length > 1) {
-          domain = `.${parts.slice(-2).join('.')}`;
-        }
-      }
-    } catch (e) {
-      // Invalid URL, skip domain setting
-    }
-  }
+  
+  // Only set domain if frontend and backend are on the same root domain (subdomains)
+  // This is NOT the case for Vercel deployments where frontend and backend are on different domains
+  // For Vercel: frontend might be on *.vercel.app and backend on offer-us-api.vercel.app
+  // These are different domains, so we don't set domain attribute
   
   // For HTTPS backend or cross-domain, we need sameSite: "none" and secure: true
   // Browsers require secure: true when sameSite is "none"
@@ -499,6 +491,7 @@ export const logout = async (req, res) => {
       secure: cookieOptions.secure,
       sameSite: cookieOptions.sameSite,
       path: cookieOptions.path,
+      ...(cookieOptions.domain && { domain: cookieOptions.domain }),
     });
 
     return sendSuccess(res, 200, "Logged out successfully");
@@ -512,6 +505,7 @@ export const logout = async (req, res) => {
         secure: cookieOptions.secure,
         sameSite: cookieOptions.sameSite,
         path: cookieOptions.path,
+        ...(cookieOptions.domain && { domain: cookieOptions.domain }),
       });
       return sendSuccess(res, 200, "Logged out successfully");
     }
