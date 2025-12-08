@@ -1,0 +1,18 @@
+Starting Test
+Connected to MongoDB via connectDB
+
+--- Testing Partner Redemption Notification ---
+No active offer found. Creating mock data...
+Mock data created.
+Testing with Offer: Test Offer (ID: 6936fb52b3b081ef25116986)
+Partner User ID: 6936fb4fb3b081ef2511697c
+SUCCESS: Redemption notification created!
+Title: Offer Redeemed
+Message: Your offer "Test Offer" was redeemed by Test Member.
+Cleanup: Notification deleted.
+Cleanup: Mock data deleted.
+
+--- Testing Expiring Offers Notification ---
+notifyExpiringOffers executed successfully.
+
+Disconnected from MongoDB

@@ -48,7 +48,33 @@ export const notifyNewOffer = async (offer, partner) => {
 };
 
 /**
- * Notify members about expiring offers
+ * Notify partner about offer redemption
+ */
+export const notifyPartnerRedemption = async (offer, member) => {
+  try {
+    // Find partner user ID
+    const Partner = (await import('../models/Partner.js')).default;
+    const partner = await Partner.findById(offer.partner).select('userId shopName');
+    
+    if (!partner || !partner.userId) return;
+
+    await Notification.create({
+      user: partner.userId,
+      type: 'system', // Using system type as per schema enum, or could add 'redemption' to enum if needed
+      title: 'Offer Redeemed',
+      message: `Your offer "${offer.title}" was redeemed by ${member.firstName} ${member.lastName}.`,
+      relatedEntity: {
+        entityType: 'offer',
+        entityId: offer._id,
+      },
+    });
+  } catch (error) {
+    console.error('Error notifying partner about redemption:', error);
+  }
+};
+
+/**
+ * Notify members and partners about expiring offers
  */
 export const notifyExpiringOffers = async () => {
   try {
@@ -62,14 +88,14 @@ export const notifyExpiringOffers = async () => {
         $gte: new Date(),
         $lte: tomorrow,
       },
-    }).populate('partner', 'shopName');
+    }).populate('partner', 'shopName userId');
 
     for (const offer of expiringOffers) {
-      // Find members who saved this offer
+      // 1. Notify Members who saved this offer
       const SavedOffer = (await import('../models/SavedOffer.js')).default;
       const savedOffers = await SavedOffer.find({ offer: offer._id }).populate('member');
 
-      const notifications = savedOffers.map((savedOffer) =>
+      const memberNotifications = savedOffers.map((savedOffer) =>
         Notification.create({
           user: savedOffer.member._id,
           type: 'expiring_offer',
@@ -82,7 +108,22 @@ export const notifyExpiringOffers = async () => {
         })
       );
 
-      await Promise.all(notifications);
+      // 2. Notify Partner
+      if (offer.partner && offer.partner.userId) {
+        const partnerNotification = Notification.create({
+          user: offer.partner.userId,
+          type: 'expiring_offer',
+          title: 'Your Offer is Expiring Soon',
+          message: `Your offer "${offer.title}" will expire in less than 24 hours.`,
+          relatedEntity: {
+            entityType: 'offer',
+            entityId: offer._id,
+          },
+        });
+        memberNotifications.push(partnerNotification);
+      }
+
+      await Promise.all(memberNotifications);
     }
   } catch (error) {
     console.error('Error notifying about expiring offers:', error);

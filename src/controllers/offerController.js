@@ -3,7 +3,7 @@ import Partner from '../models/Partner.js';
 import SavedOffer from '../models/SavedOffer.js';
 import Category from '../models/Category.js';
 import { sendSuccess, sendError } from '../utils/responseFormat.js';
-import { notifyNewOffer } from '../utils/notificationService.js';
+import { notifyNewOffer, notifyPartnerRedemption } from '../utils/notificationService.js';
 
 /**
  * @desc    Browse all active offers (Public)
@@ -577,6 +577,17 @@ export const redeemOffer = async (req, res) => {
 
     offer.analytics.redemptions += 1;
     await offer.save();
+
+    // Notify partner about redemption
+    // We need member details for the notification
+    const Member = (await import('../models/Member.js')).default;
+    const member = await Member.findOne({ userId: req.user._id });
+    
+    if (member) {
+      notifyPartnerRedemption(offer, member).catch(err => {
+        console.error('Error notifying partner about redemption:', err);
+      });
+    }
 
     return sendSuccess(res, 200, 'Offer redeemed successfully');
   } catch (error) {
