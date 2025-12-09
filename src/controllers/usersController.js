@@ -87,7 +87,9 @@ export const updateUser = async (req, res) => {
     }
 
     if (isActive !== undefined) user.isActive = isActive;
+    if (isActive !== undefined) user.isActive = isActive;
     if (role) user.role = role;
+    if (req.body.profileImage !== undefined) user.profileImage = req.body.profileImage;
 
     await user.save();
 
