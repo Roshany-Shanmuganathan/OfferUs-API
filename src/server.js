@@ -82,16 +82,36 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api', routes);
 
+// Root route for health check
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'OfferUs API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      docs: 'https://github.com/your-repo/api-docs'
+    }
+  });
+});
+
 // 404 handler
 app.use(notFound);
 
 // Error handler
 app.use(errorHandler);
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Export app for Vercel serverless
+export default app;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+// Start server only in non-production (for local development)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
 
