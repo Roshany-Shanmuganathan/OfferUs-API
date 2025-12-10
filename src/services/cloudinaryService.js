@@ -116,3 +116,5 @@ export const extractPublicId = (url) => {
 export default cloudinary;
 
 
+
+

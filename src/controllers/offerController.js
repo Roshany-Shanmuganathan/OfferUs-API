@@ -12,7 +12,7 @@ import { notifyNewOffer, notifyPartnerRedemption } from '../utils/notificationSe
  */
 export const browseOffers = async (req, res) => {
   try {
-    const { category, city, search, page = 1, limit = 10, sortBy } = req.query;
+    const { category, city, district, location, search, page = 1, limit = 10, sortBy } = req.query;
 
     const query = {
       isActive: true,
@@ -31,6 +31,56 @@ export const browseOffers = async (req, res) => {
       }).select('_id');
       
       // If no partners found for the city, return empty results
+      if (partners.length === 0) {
+        return sendSuccess(res, 200, 'Offers retrieved successfully', {
+          offers: [],
+          isAuthenticated: !!req.user,
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0,
+          },
+        });
+      }
+      
+      query.partner = { $in: partners.map((p) => p._id) };
+    }
+
+    // Filter by district (exact match from dropdown)
+    if (district) {
+      const partners = await Partner.find({
+        'location.district': district,
+      }).select('_id');
+      
+      // If no partners found for the district, return empty results
+      if (partners.length === 0) {
+        return sendSuccess(res, 200, 'Offers retrieved successfully', {
+          offers: [],
+          isAuthenticated: !!req.user,
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0,
+          },
+        });
+      }
+      
+      query.partner = { $in: partners.map((p) => p._id) };
+    }
+
+    // Search by location (fuzzy search on both city and district)
+    // Only apply if district dropdown is not selected (district takes precedence)
+    if (location && !district) {
+      const partners = await Partner.find({
+        $or: [
+          { 'location.city': new RegExp(location, 'i') },
+          { 'location.district': new RegExp(location, 'i') }
+        ]
+      }).select('_id');
+      
+      // If no partners found for the location, return empty results
       if (partners.length === 0) {
         return sendSuccess(res, 200, 'Offers retrieved successfully', {
           offers: [],
@@ -374,6 +424,11 @@ export const createOffer = async (req, res) => {
       return sendError(res, 404, 'Partner profile not found');
     }
 
+    // Check if partner is approved
+    if (partner.status !== 'approved') {
+      return sendError(res, 403, 'Your account is not approved. You cannot create offers.');
+    }
+
     const {
       title,
       description,
@@ -479,6 +534,11 @@ export const updateOffer = async (req, res) => {
       return sendError(res, 404, 'Partner profile not found');
     }
 
+    // Check if partner is approved
+    if (partner.status !== 'approved') {
+      return sendError(res, 403, 'Your account is not approved. You cannot update offers.');
+    }
+
     const offer = await Offer.findOne({
       _id: req.params.id,
       partner: partner._id,
@@ -535,6 +595,11 @@ export const deleteOffer = async (req, res) => {
       const partner = await Partner.findOne({ userId: req.user._id });
       if (!partner) {
         return sendError(res, 404, 'Partner profile not found');
+      }
+
+      // Check if partner is approved
+      if (partner.status !== 'approved') {
+        return sendError(res, 403, 'Your account is not approved. You cannot delete offers.');
       }
 
       offer = await Offer.findOne({
