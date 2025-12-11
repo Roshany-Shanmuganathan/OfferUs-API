@@ -42,7 +42,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin) ) {
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
       // For development, allow localhost on any port
