@@ -1,7 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
-import pkg from 'multer-storage-cloudinary';
-const { CloudinaryStorage } = pkg;
 import multer from 'multer';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const cloudinaryStorage = require('multer-storage-cloudinary');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -16,13 +17,11 @@ cloudinary.config({
  * @returns {CloudinaryStorage} Multer storage instance
  */
 export const createCloudinaryStorage = (folder) => {
-  return new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: folder,
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-      transformation: [{ width: 1000, height: 1000, crop: 'limit' }], // Limit size
-    },
+  return cloudinaryStorage({
+    cloudinary: { v2: cloudinary }, // Fix: Wrap cloudinary v2 in an object as library expects { cloudinary: { v2: ... } } or the full cloudinary package
+    folder: folder,
+    allowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 1000, height: 1000, crop: 'limit' }],
   });
 };
 
@@ -115,9 +114,3 @@ export const extractPublicId = (url) => {
 };
 
 export default cloudinary;
-
-
-
-
-
-
