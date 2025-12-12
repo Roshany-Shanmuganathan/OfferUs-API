@@ -8,15 +8,22 @@ import { sendSuccess, sendError } from '../utils/responseFormat.js';
  */
 export const getNotifications = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, type } = req.query;
     const skip = (page - 1) * limit;
 
-    const notifications = await Notification.find({ user: req.user._id })
+    const query = { user: req.user._id };
+    if (type) {
+      // Allow multiple types separated by comma
+      const types = type.split(',');
+      query.type = { $in: types };
+    }
+
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Notification.countDocuments({ user: req.user._id });
+    const total = await Notification.countDocuments(query);
     const unreadCount = await Notification.countDocuments({
       user: req.user._id,
       isRead: false,
