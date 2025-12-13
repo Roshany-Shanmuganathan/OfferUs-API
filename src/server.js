@@ -34,58 +34,36 @@ app.set("trust proxy", 1);
 // CORS configuration - allow credentials for cookies
 // Support multiple origins for development and production
 // FRONTEND_URL can be a single URL or comma-separated list
-// Normalize URLs by removing trailing slashes (browser origins don't have them)
-const normalizeOrigin = (url) => url.trim().replace(/\/+$/, "");
 
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",").map(normalizeOrigin)
-  : ["http://localhost:3000"];
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://jey-shop.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean); // Remove undefined values
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests) only in development
+      if (!origin) {
+        if (process.env.NODE_ENV === "production") {
+          return callback(new Error("Not allowed by CORS"));
+        }
+        return callback(null, true);
+      }
 
-    // Normalize the incoming origin (remove trailing slash if present)
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    // Check if origin is in allowed list (case-insensitive comparison)
-    const isAllowed = allowedOrigins.some(
-      (allowed) =>
-        normalizeOrigin(allowed).toLowerCase() ===
-        normalizedOrigin.toLowerCase()
-    );
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      // For development, allow localhost on any port
-      if (
-        process.env.NODE_ENV !== "production" &&
-        normalizedOrigin.includes("localhost")
-      ) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.error("CORS: Origin not allowed:", normalizedOrigin);
-        console.error("CORS: Allowed origins:", allowedOrigins);
-        callback(
-          new Error(
-            `Not allowed by CORS. Origin: ${normalizedOrigin}, Allowed: ${allowedOrigins.join(
-              ", "
-            )}`
-          )
-        );
+        callback(new Error("Not allowed by CORS"));
       }
-    }
-  },
-  credentials: true, // Allow cookies to be sent - REQUIRED for HTTP-only cookies
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["Set-Cookie"], // Expose Set-Cookie header
-};
+    },
+    credentials: true,
+  })
+);
 
 // Middleware
-app.use(cors(corsOptions));
 app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
