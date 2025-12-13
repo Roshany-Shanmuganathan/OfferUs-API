@@ -1,4 +1,4 @@
-import "dotenv/config";
+import dotenv from 'dotenv';
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -11,6 +11,8 @@ import { startCronScheduler } from "./utils/cronScheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config();
 
 // Connect to database
 connectDB()
@@ -38,7 +40,7 @@ app.set("trust proxy", 1);
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://jey-shop.vercel.app",
+  "https://offer-us.vercel.app",
   process.env.FRONTEND_URL,
 ].filter(Boolean); // Remove undefined values
 
