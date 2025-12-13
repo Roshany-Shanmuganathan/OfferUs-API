@@ -15,12 +15,10 @@ const memberSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: [true, "Last name is required"],
       trim: true,
     },
     mobileNumber: {
       type: String,
-      required: [true, "Mobile number is required"],
       trim: true,
       match: [
         /^(\+94|0)?[0-9]{9}$/,
@@ -29,7 +27,6 @@ const memberSchema = new mongoose.Schema(
     },
     address: {
       type: String,
-      required: [true, "Address is required"],
       trim: true,
     },
     dateOfBirth: {
