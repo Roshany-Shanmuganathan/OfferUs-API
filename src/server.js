@@ -42,7 +42,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin) ) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       // For development, allow localhost on any port
@@ -51,7 +51,8 @@ const corsOptions = {
       } else {
         console.error('CORS: Origin not allowed:', origin);
         console.error('CORS: Allowed origins:', allowedOrigins);
-        callback(new Error(`Not allowed by CORS. Origin: ${origin}, Allowed: ${allowedOrigins.join(', ')}`));
+        // Return false instead of throwing error to allow CORS middleware to still set headers
+        callback(null, false);
       }
     }
   },
@@ -59,7 +60,13 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Set-Cookie'], // Expose Set-Cookie header
+  optionsSuccessStatus: 200, // For legacy browser compatibility
 };
+
+// Log allowed origins in production for debugging
+if (process.env.NODE_ENV === 'production') {
+  console.log('CORS: Allowed origins:', allowedOrigins);
+}
 
 // Middleware
 app.use(cors(corsOptions));
