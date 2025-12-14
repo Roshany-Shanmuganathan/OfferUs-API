@@ -1,43 +1,6 @@
 /**
  * Standard response format utility
  */
-
-/**
- * Helper function to set CORS headers on response
- * This ensures CORS headers are present even when errors occur
- */
-const setCorsHeaders = (req, res) => {
-  const origin = req.headers.origin;
-
-  // Get allowed origins from environment
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-    : ["http://localhost:3000"];
-
-  // Check if origin is allowed
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (
-    process.env.NODE_ENV !== "production" &&
-    origin &&
-    origin.includes("localhost")
-  ) {
-    // Allow localhost in development
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (allowedOrigins.length > 0) {
-    // Fallback to first allowed origin
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
-  }
-
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Expose-Headers", "Set-Cookie");
-};
-
 export const sendResponse = (
   res,
   statusCode,
@@ -57,26 +20,7 @@ export const sendResponse = (
   return res.status(statusCode).json(response);
 };
 
-/**
- * Send error response with optional CORS headers
- * @param {Object} res - Express response object
- * @param {number} statusCode - HTTP status code
- * @param {string} message - Error message
- * @param {Array|Object|null} errors - Optional validation errors
- * @param {Object} req - Optional Express request object (for CORS headers)
- */
-export const sendError = (
-  res,
-  statusCode,
-  message,
-  errors = null,
-  req = null
-) => {
-  // Set CORS headers if request object is provided
-  if (req) {
-    setCorsHeaders(req, res);
-  }
-
+export const sendError = (res, statusCode, message, errors = null) => {
   const response = {
     success: false,
     message,
