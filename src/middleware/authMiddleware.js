@@ -21,35 +21,46 @@ export const verifyToken = async (req, res, next) => {
     }
 
     if (!token) {
-      return sendError(res, 401, 'Not authorized, no token provided');
+      return sendError(res, 401, 'Not authorized, no token provided', null, req);
+    }
+
+    // Validate JWT_SECRET is set
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured');
+      return sendError(res, 500, 'Server configuration error', null, req);
     }
 
     try {
       // Check blacklist first
       const blacklisted = await TokenBlacklist.findOne({ token });
       if (blacklisted) {
-        return sendError(res, 401, 'Not authorized, token has been revoked');
+        return sendError(res, 401, 'Not authorized, token has been revoked', null, req);
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user) {
-        return sendError(res, 401, 'User not found');
+        return sendError(res, 401, 'User not found', null, req);
       }
 
       if (!req.user.isActive) {
-        return sendError(res, 401, 'User account is inactive');
+        return sendError(res, 401, 'User account is inactive', null, req);
       }
 
       // Expose token on request for logout use-cases
       req.token = token;
       next();
     } catch (error) {
-      return sendError(res, 401, 'Not authorized, invalid token');
+      // Log JWT verification errors for debugging
+      if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+        console.error('JWT verification error:', error.name, error.message);
+      }
+      return sendError(res, 401, 'Not authorized, invalid token', null, req);
     }
   } catch (error) {
-    return sendError(res, 500, 'Server error during authentication');
+    console.error('Authentication middleware error:', error);
+    return sendError(res, 500, 'Server error during authentication', null, req);
   }
 };
 
@@ -65,14 +76,16 @@ export const verifyRole = (allowedRoles) => {
     const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
     if (!req.user) {
-      return sendError(res, 401, 'Not authorized, user not found');
+      return sendError(res, 401, 'Not authorized, user not found', null, req);
     }
 
     if (!roles.includes(req.user.role)) {
       return sendError(
         res,
         403,
-        `User role '${req.user.role}' is not authorized to access this route. Allowed roles: ${roles.join(', ')}`
+        `User role '${req.user.role}' is not authorized to access this route. Allowed roles: ${roles.join(', ')}`,
+        null,
+        req
       );
     }
 
@@ -88,14 +101,16 @@ export const verifyRole = (allowedRoles) => {
 export const requireRole = (role) => {
   return (req, res, next) => {
     if (!req.user) {
-      return sendError(res, 401, 'Not authorized, user not found');
+      return sendError(res, 401, 'Not authorized, user not found', null, req);
     }
 
     if (req.user.role !== role) {
       return sendError(
         res,
         403,
-        `User role '${req.user.role}' is not authorized. Required role: ${role}`
+        `User role '${req.user.role}' is not authorized. Required role: ${role}`,
+        null,
+        req
       );
     }
 
@@ -114,28 +129,29 @@ export const authorize = verifyRole;
 export const verifyPartnerApproved = async (req, res, next) => {
   try {
     if (req.user.role !== 'partner') {
-      return sendError(res, 403, 'Only partners can access this route');
+      return sendError(res, 403, 'Only partners can access this route', null, req);
     }
 
     const Partner = (await import('../models/Partner.js')).default;
     const partner = await Partner.findOne({ userId: req.user._id });
 
     if (!partner) {
-      return sendError(res, 404, 'Partner profile not found');
+      return sendError(res, 404, 'Partner profile not found', null, req);
     }
 
     if (partner.status === 'banned') {
-      return sendError(res, 403, 'Your partner account has been banned. Please contact support.');
+      return sendError(res, 403, 'Your partner account has been banned. Please contact support.', null, req);
     }
 
     if (partner.status !== 'approved') {
-      return sendError(res, 403, 'Partner account is not approved yet. Please wait for admin approval.');
+      return sendError(res, 403, 'Partner account is not approved yet. Please wait for admin approval.', null, req);
     }
 
     req.partner = partner;
     next();
   } catch (error) {
-    return sendError(res, 500, 'Server error during partner verification');
+    console.error('Partner verification error:', error);
+    return sendError(res, 500, 'Server error during partner verification', null, req);
   }
 };
 
