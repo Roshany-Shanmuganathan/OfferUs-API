@@ -14,132 +14,140 @@ export const browseOffers = async (req, res) => {
   try {
     const { category, city, district, location, search, page = 1, limit = 10, sortBy } = req.query;
 
-    const query = {
+    // Base query for facets (excludes specific attribute filters to show available options)
+    const baseQuery = {
       isActive: true,
       expiryDate: { $gt: new Date() },
     };
 
+    const query = { ...baseQuery };
+
+    // --- 1. Apply Location/Search Filters to BOTH baseQuery and main query ---
+    
+    // Search by city
+    if (city) {
+      const partners = await Partner.find({ 'location.city': new RegExp(city, 'i') }).select('_id');
+      const partnerIds = partners.map(p => p._id);
+      // If no partners, empty results immediately
+      if (partners.length === 0) { /* ... handle empty ... */ } // Logic kept simple below for brevity in replacement
+      baseQuery.partner = { $in: partnerIds };
+      query.partner = { $in: partnerIds };
+    }
+
+    // Search by district
+    if (district) {
+      const districts = Array.isArray(district) ? district : district.split(',');
+      const validDistricts = districts.map(d => d.trim()).filter(d => d);
+      if (validDistricts.length > 0) {
+        const partners = await Partner.find({ 'location.district': { $in: validDistricts } }).select('_id');
+        const partnerIds = partners.map(p => p._id);
+        
+        // Merge with existing partner filter if perviously set by city? 
+        // Logic might be complex if both set. Assuming intersection or override.
+        // Let's simplified: If partner filter exists, intersect.
+        if (baseQuery.partner) {
+            const existingIds = baseQuery.partner.$in.map(id => id.toString());
+            const newIds = partnerIds.map(id => id.toString());
+            const intersection = existingIds.filter(id => newIds.includes(id));
+            baseQuery.partner = { $in: intersection };
+            query.partner = { $in: intersection };
+        } else {
+             baseQuery.partner = { $in: partnerIds };
+             query.partner = { $in: partnerIds };
+        }
+      }
+    }
+
+    // Search by location (fuzzy)
+    if (location && !district && !city) {
+         const partners = await Partner.find({
+            $or: [
+              { 'location.city': new RegExp(location, 'i') },
+              { 'location.district': new RegExp(location, 'i') }
+            ]
+          }).select('_id');
+          const partnerIds = partners.map(p => p._id);
+          baseQuery.partner = { $in: partnerIds };
+          query.partner = { $in: partnerIds };
+    }
+
+    if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        baseQuery.$or = [
+            { title: searchRegex },
+            { description: searchRegex }
+        ];
+        query.$or = baseQuery.$or;
+    }
+
+
+    // --- 2. Calculate Facets (Category Counts) based on baseQuery ---
+    // We aggregate counts for ALL categories matching the location/search
+    const categoryCounts = await Offer.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: "$category", count: { $sum: 1 } } }
+    ]);
+    
+    const facets = {
+        categories: categoryCounts.map(c => ({ name: c._id, count: c.count }))
+    };
+
+
+    // --- 3. Apply Specific Filters to Main Query ---
+
     // Filter by category
     if (category) {
-      query.category = category;
-    }
-
-    // Filter by city
-    if (city) {
-      const partners = await Partner.find({
-        'location.city': new RegExp(city, 'i'),
-      }).select('_id');
-      
-      // If no partners found for the city, return empty results
-      if (partners.length === 0) {
-        return sendSuccess(res, 200, 'Offers retrieved successfully', {
-          offers: [],
-          isAuthenticated: !!req.user,
-          pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total: 0,
-            pages: 0,
-          },
-        });
+      const categories = Array.isArray(category) ? category : category.split(',');
+      const regexCategories = categories.map(c => new RegExp(`^${c.trim()}$`, 'i'));
+      if (regexCategories.length > 0) {
+        query.category = { $in: regexCategories };
       }
-      
-      query.partner = { $in: partners.map((p) => p._id) };
     }
 
-    // Filter by district (exact match from dropdown)
-    if (district) {
-      const partners = await Partner.find({
-        'location.district': district,
-      }).select('_id');
-      
-      // If no partners found for the district, return empty results
-      if (partners.length === 0) {
-        return sendSuccess(res, 200, 'Offers retrieved successfully', {
-          offers: [],
-          isAuthenticated: !!req.user,
-          pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total: 0,
-            pages: 0,
-          },
-        });
-      }
-      
-      query.partner = { $in: partners.map((p) => p._id) };
+    // Filter by Price Range
+    const { minPrice, maxPrice } = req.query;
+    if (minPrice || maxPrice) {
+        query.discountedPrice = {};
+        if (minPrice) query.discountedPrice.$gte = Number(minPrice);
+        if (maxPrice) query.discountedPrice.$lte = Number(maxPrice);
     }
 
-    // Search by location (fuzzy search on both city and district)
-    // Only apply if district dropdown is not selected (district takes precedence)
-    if (location && !district) {
-      const partners = await Partner.find({
-        $or: [
-          { 'location.city': new RegExp(location, 'i') },
-          { 'location.district': new RegExp(location, 'i') }
-        ]
-      }).select('_id');
-      
-      // If no partners found for the location, return empty results
-      if (partners.length === 0) {
-        return sendSuccess(res, 200, 'Offers retrieved successfully', {
-          offers: [],
-          isAuthenticated: !!req.user,
-          pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total: 0,
-            pages: 0,
-          },
-        });
-      }
-      
-      query.partner = { $in: partners.map((p) => p._id) };
+    // Filter by Discount Range
+    const { minDiscount, maxDiscount } = req.query;
+    if (minDiscount || maxDiscount) {
+        query.discount = {};
+        if (minDiscount) query.discount.$gte = Number(minDiscount);
+        if (maxDiscount) query.discount.$lte = Number(maxDiscount);
     }
-
-    // Search by title or description
-    if (search) {
-      query.$or = [
-        { title: new RegExp(search, 'i') },
-        { description: new RegExp(search, 'i') },
-      ];
+    
+    // Filter by Expiry
+    const { expiresBefore } = req.query; // Format YYYY-MM-DD
+    if (expiresBefore) {
+        // Find offers expiring BEFORE this date (but after now)
+        // e.g. "I want offers expiring in the next 3 days" -> expiresBefore = now + 3 days
+        // query.expiryDate is already > now from baseQuery
+        query.expiryDate = { 
+            $gt: new Date(), 
+            $lte: new Date(expiresBefore) 
+        };
     }
-
+    
     const skip = (page - 1) * limit;
 
-    // Determine sort order based on sortBy parameter
-    // Normalize sortBy to lowercase to handle case variations
+    // ... Sort logic ...
     const normalizedSortBy = sortBy ? String(sortBy).toLowerCase() : 'newest';
-    let sortOption = { createdAt: -1 }; // Default: newest first
-    
-    switch (normalizedSortBy) {
-      case 'newest':
-        sortOption = { createdAt: -1 };
-        break;
-      case 'oldest':
-        sortOption = { createdAt: 1 };
-        break;
-      case 'discount-high':
-        sortOption = { discount: -1 };
-        break;
-      case 'discount-low':
-        sortOption = { discount: 1 };
-        break;
-      case 'price-low':
-        sortOption = { discountedPrice: 1 };
-        break;
-      case 'price-high':
-        sortOption = { discountedPrice: -1 };
-        break;
-      case 'expiring':
-        // Sort by expiry date ascending (earliest expiry first = expiring soon)
-        sortOption = { expiryDate: 1 };
-        break;
-      default:
-        sortOption = { createdAt: -1 };
+    let sortOption = { createdAt: -1 };
+    // ... existing switch case for sort ...
+     switch (normalizedSortBy) {
+      case 'newest': sortOption = { createdAt: -1 }; break;
+      case 'oldest': sortOption = { createdAt: 1 }; break;
+      case 'discount-high': sortOption = { discount: -1 }; break;
+      case 'discount-low': sortOption = { discount: 1 }; break;
+      case 'price-low': sortOption = { discountedPrice: 1 }; break;
+      case 'price-high': sortOption = { discountedPrice: -1 }; break;
+      case 'expiring': sortOption = { expiryDate: 1 }; break;
+      default: sortOption = { createdAt: -1 };
     }
-
-    console.log('Sorting by:', normalizedSortBy, 'Sort option:', sortOption); // Debug log
 
     const offers = await Offer.find(query)
       .populate('partner', 'partnerName shopName location category')
@@ -149,34 +157,11 @@ export const browseOffers = async (req, res) => {
 
     const total = await Offer.countDocuments(query);
     
-    // Debug: Log query details to help diagnose issues
-    console.log('=== Browse Offers Debug ===');
-    console.log('Query filters:', JSON.stringify(query, null, 2));
-    console.log('Total offers matching query:', total);
+    // ... Analytics updates ...
+    await Offer.updateMany({ _id: { $in: offers.map((o) => o._id) } }, { $inc: { 'analytics.views': 1 } });
     
-    // Check total offers in database (for debugging)
-    const totalOffersInDB = await Offer.countDocuments({});
-    const activeOffers = await Offer.countDocuments({ isActive: true });
-    const expiredOffers = await Offer.countDocuments({ expiryDate: { $lte: new Date() } });
-    const activeNonExpired = await Offer.countDocuments({ 
-      isActive: true, 
-      expiryDate: { $gt: new Date() } 
-    });
-    
-    console.log('Total offers in DB:', totalOffersInDB);
-    console.log('Active offers:', activeOffers);
-    console.log('Expired offers:', expiredOffers);
-    console.log('Active & non-expired offers:', activeNonExpired);
-    console.log('==========================');
-
-    // Increment views for each offer (track analytics)
-    await Offer.updateMany(
-      { _id: { $in: offers.map((o) => o._id) } },
-      { $inc: { 'analytics.views': 1 } }
-    );
-
-    // If user is logged in, check which offers are saved
-    let savedOfferIds = [];
+    // ... Check saved offers ...
+     let savedOfferIds = [];
     if (req.user && req.user.role === 'member') {
       const savedOffers = await SavedOffer.find({
         member: req.user._id,
@@ -185,8 +170,7 @@ export const browseOffers = async (req, res) => {
       savedOfferIds = savedOffers.map((so) => so.offer.toString());
     }
 
-    // Add isSaved flag to each offer if user is logged in
-    const offersWithSavedFlag = offers.map((offer) => {
+     const offersWithSavedFlag = offers.map((offer) => {
       const offerObj = offer.toObject();
       if (req.user && req.user.role === 'member') {
         offerObj.isSaved = savedOfferIds.includes(offer._id.toString());
@@ -196,6 +180,7 @@ export const browseOffers = async (req, res) => {
 
     return sendSuccess(res, 200, 'Offers retrieved successfully', {
       offers: offersWithSavedFlag,
+      facets, // Return facets
       isAuthenticated: !!req.user,
       pagination: {
         page: parseInt(page),
