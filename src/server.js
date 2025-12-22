@@ -1,4 +1,4 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -11,6 +11,8 @@ import { startCronScheduler } from "./utils/cronScheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config();
 
 // Connect to database
 connectDB()
@@ -26,55 +28,35 @@ connectDB()
 
 // Initialize Express app
 const app = express();
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://offer-us.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean); // Remove undefined values
 
-// Trust proxy (required for Vercel and other platforms that use reverse proxies)
-// This ensures req.protocol returns 'https' when behind a proxy
-app.set("trust proxy", 1);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests) only in development
+      if (!origin) {
+        if (process.env.NODE_ENV === "production") {
+          return callback(new Error("Not allowed by CORS"));
+        }
+        return callback(null, true);
+      }
 
-// CORS configuration - allow credentials for cookies
-// Support multiple origins for development and production
-// FRONTEND_URL can be a single URL or comma-separated list
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-  : ["https://offer-us.vercel.app"];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // For development, allow localhost on any port
-      if (
-        process.env.NODE_ENV !== "production" &&
-        origin.includes("localhost")
-      ) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.error("CORS: Origin not allowed:", origin);
-        console.error("CORS: Allowed origins:", allowedOrigins);
-        // Return false instead of throwing error to allow CORS middleware to still set headers
-        callback(null, false);
+        callback(new Error("Not allowed by CORS"));
       }
-    }
-  },
-  credentials: true, // Allow cookies to be sent - REQUIRED for HTTP-only cookies
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["Set-Cookie"], // Expose Set-Cookie header
-  optionsSuccessStatus: 200, // For legacy browser compatibility
-};
-
-// Log allowed origins in production for debugging
-if (process.env.NODE_ENV === "production") {
-  console.log("CORS: Allowed origins:", allowedOrigins);
-}
+    },
+    credentials: true,
+  })
+);
 
 // Middleware
-app.use(cors(corsOptions));
 app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -104,7 +86,7 @@ app.get("/", (req, res) => {
     endpoints: {
       health: "/health",
       api: "/api",
-      docs: "https://offer-us-api.vercel.app/docs",
+      docs: "https://github.com/your-repo/api-docs",
     },
   });
 });
