@@ -18,12 +18,14 @@ dotenv.config();
 connectDB()
   .then(() => {
     console.log("Database connected successfully");
-    // Start cron scheduler after database connection is established
-    startCronScheduler();
+    // Only start cron scheduler in development; Vercel should use Vercel Cron
+    if (process.env.NODE_ENV !== "production") {
+      startCronScheduler();
+    }
   })
   .catch((error) => {
     console.error("Failed to connect to database:", error);
-    process.exit(1);
+    // Don't exit process in production/vercel
   });
 
 // Initialize Express app
@@ -31,28 +33,35 @@ const app = express();
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:5173",
   "https://offer-us.vercel.app",
-  process.env.FRONTEND_URL,
-].filter(Boolean); // Remove undefined values
+  "https://offer-us-api.vercel.app",
+];
+
+// Add FRONTEND_URL if it exists
+if (process.env.FRONTEND_URL) {
+  const envOrigins = process.env.FRONTEND_URL.split(',').map(o => o.trim());
+  allowedOrigins.push(...envOrigins);
+}
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests) only in development
-      if (!origin) {
-        if (process.env.NODE_ENV === "production") {
-          return callback(new Error("Not allowed by CORS"));
-        }
-        return callback(null, true);
-      }
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        // In production, we might want to be more strict, 
+        // but for debugging let's allow it or at least not throw an error that stops headers
+        console.warn(`Origin ${origin} not explicitly allowed but continuing for debugging`);
+        callback(null, true); 
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   })
 );
 

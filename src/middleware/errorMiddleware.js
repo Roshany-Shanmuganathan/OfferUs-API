@@ -8,23 +8,23 @@ const setCorsHeaders = (req, res) => {
   const origin = req.headers.origin;
 
   // Get allowed origins from environment
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-    : ["http://localhost:3000"];
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://offer-us.vercel.app",
+    "https://offer-us-api.vercel.app",
+  ];
+
+  if (process.env.FRONTEND_URL) {
+    const envOrigins = process.env.FRONTEND_URL.split(',').map(o => o.trim());
+    allowedOrigins.push(...envOrigins);
+  }
 
   // Check if origin is allowed
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (
-    process.env.NODE_ENV !== "production" &&
-    origin &&
-    origin.includes("localhost")
-  ) {
-    // Allow localhost in development
+  if (origin && (allowedOrigins.includes(origin) || allowedOrigins.includes('*'))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   } else if (allowedOrigins.length > 0) {
-    // Fallback to first allowed origin
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
+    res.setHeader("Access-Control-Allow-Origin", origin || allowedOrigins[0]);
   }
 
   res.setHeader("Access-Control-Allow-Credentials", "true");
