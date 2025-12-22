@@ -81,20 +81,7 @@ export const browseOffers = async (req, res) => {
     }
 
 
-    // --- 2. Calculate Facets (Category Counts) based on baseQuery ---
-    // We aggregate counts for ALL categories matching the location/search
-    const categoryCounts = await Offer.aggregate([
-        { $match: baseQuery },
-        { $group: { _id: "$category", count: { $sum: 1 } } }
-    ]);
-    
-    const facets = {
-        categories: categoryCounts.map(c => ({ name: c._id, count: c.count }))
-    };
-
-
-    // --- 3. Apply Specific Filters to Main Query ---
-
+    // --- 2. Apply Specific Filters to Main Query ---
     // Filter by category
     if (category) {
       const categories = Array.isArray(category) ? category : category.split(',');
@@ -123,21 +110,16 @@ export const browseOffers = async (req, res) => {
     // Filter by Expiry
     const { expiresBefore } = req.query; // Format YYYY-MM-DD
     if (expiresBefore) {
-        // Find offers expiring BEFORE this date (but after now)
-        // e.g. "I want offers expiring in the next 3 days" -> expiresBefore = now + 3 days
-        // query.expiryDate is already > now from baseQuery
         query.expiryDate = { 
             $gt: new Date(), 
             $lte: new Date(expiresBefore) 
         };
     }
     
+    // Pagination and Sort Logic
     const skip = (page - 1) * limit;
-
-    // ... Sort logic ...
     const normalizedSortBy = sortBy ? String(sortBy).toLowerCase() : 'newest';
     let sortOption = { createdAt: -1 };
-    // ... existing switch case for sort ...
      switch (normalizedSortBy) {
       case 'newest': sortOption = { createdAt: -1 }; break;
       case 'oldest': sortOption = { createdAt: 1 }; break;
@@ -149,16 +131,30 @@ export const browseOffers = async (req, res) => {
       default: sortOption = { createdAt: -1 };
     }
 
-    const offers = await Offer.find(query)
-      .populate('partner', 'partnerName shopName location category')
-      .sort(sortOption)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await Offer.countDocuments(query);
+    // Run multiple independent queries in parallel to speed up response time
+    const [offers, total, categoryCounts] = await Promise.all([
+      Offer.find(query)
+        .populate('partner', 'partnerName shopName location category')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Offer.countDocuments(query),
+      Offer.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: "$category", count: { $sum: 1 } } }
+      ])
+    ]);
     
-    // ... Analytics updates ...
-    await Offer.updateMany({ _id: { $in: offers.map((o) => o._id) } }, { $inc: { 'analytics.views': 1 } });
+    const facets = {
+        categories: categoryCounts.map(c => ({ name: c._id, count: c.count }))
+    };
+
+    // Increment views asynchronously (don't wait for it to finish to send response)
+    if (offers.length > 0) {
+      Offer.updateMany({ _id: { $in: offers.map((o) => o._id) } }, { $inc: { 'analytics.views': 1 } }).catch(err => {
+        console.error('Error updating analytics views:', err);
+      });
+    }
     
     // ... Check saved offers ...
      let savedOfferIds = [];
@@ -211,9 +207,10 @@ export const getOffer = async (req, res) => {
       return sendError(res, 404, 'Offer not found or expired');
     }
 
-    // Increment views
-    offer.analytics.views += 1;
-    await offer.save();
+    // Increment views asynchronously
+    Offer.updateOne({ _id: offer._id }, { $inc: { 'analytics.views': 1 } }).catch(err => {
+      console.error('Error updating offer view analytics:', err);
+    });
 
     const offerObj = offer.toObject();
 

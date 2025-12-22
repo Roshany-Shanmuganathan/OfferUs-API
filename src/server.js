@@ -70,6 +70,21 @@ app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Database connection middleware for Vercel
+app.use(async (req, res, next) => {
+  // Skip DB check for health routes
+  if (req.path === "/health" || req.path === "/") {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    // Pass to error handler
+    next(error);
+  }
+});
+
 // Serve static files from uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 

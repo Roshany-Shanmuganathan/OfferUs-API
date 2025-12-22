@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const connectDB = async () => {
+  // If we already have a connection, reuse it
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
   try {
     // Support both MONGO_URI and MONGODB_URI for flexibility
     let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
@@ -14,11 +19,10 @@ const connectDB = async () => {
     // Remove quotes if they exist (dotenv sometimes includes them)
     mongoUri = mongoUri.replace(/^["']|["']$/g, "").trim();
 
-    if (!mongoUri) {
-      throw new Error("MongoDB URI is empty after processing");
-    }
-
-    const conn = await mongoose.connect(mongoUri);
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+    });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return conn;
