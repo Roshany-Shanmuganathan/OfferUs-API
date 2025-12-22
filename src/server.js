@@ -67,7 +67,16 @@ app.use(
 
 // Middleware
 app.use(cookieParser()); // Parse cookies
-app.use(express.json());
+
+// Parse JSON while keeping raw body for Stripe signatures
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl.includes('/api/payment/webhook')) {
+      req.rawBody = buf;
+    }
+  }
+}));
+
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection middleware for Vercel

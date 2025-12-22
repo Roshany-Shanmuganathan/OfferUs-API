@@ -12,11 +12,15 @@ import monthlyReportsRoutes from './monthlyReportsRoutes.js';
 import schedulerRoutes from './schedulerRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import couponRoutes from './couponRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
 
 const router = express.Router();
 
 // Authentication routes (public)
 router.use('/auth', authRoutes);
+
+// Payment routes
+router.use('/payment', paymentRoutes);
 
 // Upload routes (authenticated)
 router.use('/upload', uploadRoutes);

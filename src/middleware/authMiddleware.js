@@ -155,6 +155,9 @@ export const verifyPartnerApproved = async (req, res, next) => {
   }
 };
 
+// Shorthand for partner check
+export const isPartner = verifyRole('partner');
+
 // Keep isPartnerOwner for backward compatibility (deprecated)
 export const isPartnerOwner = verifyPartnerApproved;
 

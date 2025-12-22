@@ -117,6 +117,20 @@ const partnerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    subscription: {
+      plan: {
+        type: String,
+        enum: ["none", "basic", "standard", "premium"],
+        default: "none",
+      },
+      status: {
+        type: String,
+        enum: ["unpaid", "paid"],
+        default: "unpaid",
+      },
+      startDate: Date,
+      endDate: Date,
+    },
   },
   {
     timestamps: true,
