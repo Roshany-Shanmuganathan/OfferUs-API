@@ -61,6 +61,17 @@ const offerSchema = new mongoose.Schema(
     },
     imageUrl: String,
     termsAndConditions: String,
+    // Coupon customization options
+    couponColor: {
+      type: String,
+      default: '#c9a962', // Default gold color
+      trim: true,
+    },
+    couponExpiryDays: {
+      type: Number,
+      min: [0, 'Coupon expiry days cannot be negative'],
+      default: null, // null means coupon expires with offer
+    },
   },
   {
     timestamps: true,
